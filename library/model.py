@@ -115,7 +115,6 @@ class Model:
             else:
                 lm.chat += value
         else:
-
             if isinstance(lm.chat, list):
                 if lm.chat[-1]["role"] != "assistant":
                     raise Exception(
@@ -142,6 +141,11 @@ class Model:
 
                 generation_config = GenerationConfig(
                     max_new_tokens=value.max_tokens,
+                    pad_token_id=(
+                        model_config.pad_token_id
+                        if model_config.pad_token_id
+                        else model_config.eos_token_id
+                    ),
                     **(
                         {
                             "temperature": value.temperature,
@@ -165,10 +169,11 @@ class Model:
                     ),
                 )
 
-                res = self.tokenizer.decode(output[0], skip_special_tokens=False)
+                res = self.tokenizer.decode(
+                    output[0][input_ids.shape[1] :], skip_special_tokens=False
+                )
                 if res.endswith(self.tokenizer.eos_token):
                     res = res[: -len(self.tokenizer.eos_token)]
-                res = res[len(prompt_render) :].strip()
                 # remove end pattern if it exists and save_stop_text is True
                 if not value.save_stop_text:
                     for pattern in value.stop_patterns:
@@ -177,7 +182,14 @@ class Model:
                             break
             elif isinstance(value, Select):
                 model_config = AutoConfig.from_pretrained(self.model.name_or_path)
-                generation_config = GenerationConfig(max_length=4096)
+                generation_config = GenerationConfig(
+                    max_length=4096,
+                    pad_token_id=(
+                        model_config.pad_token_id
+                        if model_config.pad_token_id
+                        else model_config.eos_token_id
+                    ),
+                )
                 model_config.update(generation_config.to_dict())
 
                 # hf_pipeline = pipeline(
@@ -203,10 +215,11 @@ class Model:
                     generation_config=generation_config,
                     prefix_allowed_tokens_fn=prefix_function,
                 )
-                res = self.tokenizer.decode(output[0], skip_special_tokens=False)
+                res = self.tokenizer.decode(
+                    output[0][input_ids.shape[1] :], skip_special_tokens=False
+                )
                 if res.endswith(self.tokenizer.eos_token):
                     res = res[: -len(self.tokenizer.eos_token)]
-                res = res[len(prompt_render) :].strip()
             else:
                 raise Exception("Invalid state")
             # Save the result
