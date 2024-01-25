@@ -165,9 +165,10 @@ class Model:
                     ),
                 )
 
-                res = self.tokenizer.decode(output[0], skip_special_tokens=True)[
-                    len(prompt_render) :
-                ]
+                res = self.tokenizer.decode(output[0], skip_special_tokens=False)
+                if res.endswith(self.tokenizer.eos_token):
+                    res = res[: -len(self.tokenizer.eos_token)]
+                res = res[len(prompt_render) :].strip()
                 # remove end pattern if it exists and save_stop_text is True
                 if not value.save_stop_text:
                     for pattern in value.stop_patterns:
@@ -202,9 +203,10 @@ class Model:
                     generation_config=generation_config,
                     prefix_allowed_tokens_fn=prefix_function,
                 )
-                res = self.tokenizer.decode(output[0], skip_special_tokens=True)[
-                    len(prompt_render) :
-                ]
+                res = self.tokenizer.decode(output[0], skip_special_tokens=False)
+                if res.endswith(self.tokenizer.eos_token):
+                    res = res[: -len(self.tokenizer.eos_token)]
+                res = res[len(prompt_render) :].strip()
             else:
                 raise Exception("Invalid state")
             # Save the result
