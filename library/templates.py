@@ -8,7 +8,7 @@ LLAMA_CHAT_TEMPLATE = (
     " eos_token}}{% endif %}{% endif %}{% endfor %}"
 )
 
-MIXTRAL_TEMPLATE = (
+MIXTRAL_INSTRUCT_TEMPLATE = (
     "{{bos_token}}{% for message in messages %}{% if message['role'] == 'system' %}{{"
     " '[INST] ' + message['content'] + ' \n' }}{% elif message['role'] == 'user' %}{%"
     " if messages[loop.index0-1]['role'] == 'system' %}{{ message['content'] + '"
