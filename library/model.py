@@ -219,3 +219,8 @@ class Model:
     def __getitem__(self, key):
         if key in self._variables:
             return self._variables[key]
+
+    def set(self, key, value):
+        lm = self.copy()
+        lm._variables[key] = value
+        return lm
