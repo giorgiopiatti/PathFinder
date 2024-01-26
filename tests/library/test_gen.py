@@ -13,7 +13,7 @@ def test_gen_stop_pattern(llm):
         lm += "Write a list"
     with assistant():
         lm += "1)"
-        lm += gen(max_tokens=100, stop_patterns=["4)"], name="list")
+        lm += gen(max_tokens=100, stop_regex=r"4\)", name="list")
     assert not "4)" in str(lm["list"])
 
 
@@ -23,9 +23,7 @@ def test_gen_stop_pattern_save(llm):
         lm += "Write a list"
     with assistant():
         lm += "1)"
-        lm += gen(
-            max_tokens=100, stop_patterns=["4)"], name="list", save_stop_text=True
-        )
+        lm += gen(max_tokens=100, stop_regex=r"4\)", name="list", save_stop_text=True)
     assert "4)" in str(lm["list"])
 
 

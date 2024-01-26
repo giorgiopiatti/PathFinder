@@ -22,29 +22,30 @@ from ._gen import Gen
 from ._select import Select
 from .templates import LLAMA_CHAT_TEMPLATE
 
+import regex
 
-class StopAtSequenceCriteria(StoppingCriteria):
-    def __init__(self, tokenizer: PreTrainedTokenizer, stop_sequence: str):
-        self.tokenizer = tokenizer
-        self.stop_token_ids = tokenizer.encode(stop_sequence, add_special_tokens=False)
-        self.stop_token_ids = [
-            token for token in self.stop_token_ids if tokenizer.decode(token) != ""
-        ]  # remove tokens that decode to empty string
 
-    def __call__(
-        self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
-    ) -> bool:
-        # Get the length of the stop sequence
-        len_stop_sequence = len(self.stop_token_ids)
-
-        # Check if the end of input_ids matches the stop sequence
-        if input_ids.shape[1] >= len_stop_sequence:
-            return all(
-                input_ids[0, -len_stop_sequence:]
-                == torch.tensor(self.stop_token_ids, device=input_ids.device)
-            )
+class RegexStoppingCriteria(StoppingCriteria):
+    def __init__(self, stop_pattern, decode, prefix_length):
+        if isinstance(stop_pattern, str):
+            self.stop_regex = [regex.compile(stop_pattern)]
         else:
-            return False
+            self.stop_regex = [regex.compile(pattern) for pattern in stop_pattern]
+        self.prefix_length = prefix_length
+        self.decode = decode
+        self.current_strings = None
+        self.current_length = 0
+
+    def __call__(self, input_ids, scores, **kwargs):
+        # Only look at the generated part
+        current_string = self.decode(
+            input_ids[0][self.prefix_length :], skip_special_tokens=False
+        )
+
+        for s in self.stop_regex:
+            if s.search(current_string):
+                return True
+        return False
 
 
 class Model:
@@ -163,8 +164,11 @@ class Model:
                     generation_config=generation_config,
                     stopping_criteria=StoppingCriteriaList(
                         [
-                            StopAtSequenceCriteria(self.tokenizer, pattern)
-                            for pattern in value.stop_patterns
+                            RegexStoppingCriteria(
+                                value.stop_regex,
+                                self.tokenizer.decode,
+                                input_ids.shape[1],
+                            )
                         ],
                     ),
                 )
@@ -176,7 +180,7 @@ class Model:
                     res = res[: -len(self.tokenizer.eos_token)]
                 # remove end pattern if it exists and save_stop_text is True
                 if not value.save_stop_text:
-                    for pattern in value.stop_patterns:
+                    for pattern in value.stop_regex:
                         if res.endswith(pattern):
                             res = res[: -len(pattern)]
                             break

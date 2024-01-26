@@ -14,20 +14,20 @@ tokenizer = AutoTokenizer.from_pretrained(arg_LLM, use_fast=True)
 
 base = LlamaChat(model, tokenizer)
 
-lm = base
-lm += " "
-lm += select(["a", "b", "c"], name="select")
-assert lm["select"] == "a" or lm["select"] == "b" or lm["select"] == "c"
+# lm = base
+# lm += " "
+# lm += select(["a", "b", "c"], name="select")
+# assert lm["select"] == "a" or lm["select"] == "b" or lm["select"] == "c"
 
 lm = base
 with user():
     lm += "Write a list"
 with assistant():
     lm += "1)"
-    lm += gen(max_tokens=100, stop_patterns=["4)"], name="list")
+    lm += gen(max_tokens=100, stop_regex=r"4\)", name="list")
 # lm += "Write a list"
 # lm += "1)"
-# lm += gen(max_tokens=100, stop_patterns=["4)"], name="list")
+# lm += gen(max_tokens=100, stop_regex=["4)"], name="list")
 # assert not "4)" in str(lm["list"])
 
 lm = base
