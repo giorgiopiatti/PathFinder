@@ -180,9 +180,16 @@ class Model:
                     res = res[: -len(self.tokenizer.eos_token)]
                 # remove end pattern if it exists and save_stop_text is True
                 if not value.save_stop_text:
-                    for pattern in value.stop_regex:
-                        if res.endswith(pattern):
-                            res = res[: -len(pattern)]
+                    if isinstance(value.stop_regex, str):
+                        stop_regex = [regex.compile(value.stop_regex)]
+                    else:
+                        stop_regex = [
+                            regex.compile(pattern) for pattern in value.stop_regex
+                        ]
+
+                    for p in stop_regex:
+                        if p.search(res):
+                            res = p.sub("", res)
                             break
             elif isinstance(value, Select):
                 model_config = AutoConfig.from_pretrained(self.model.name_or_path)
@@ -196,20 +203,14 @@ class Model:
                 )
                 model_config.update(generation_config.to_dict())
 
-                # hf_pipeline = pipeline(
-                #     "text-generation",
-                #     model=self.model,
-                #     tokenizer=self.tokenizer,
-                #     generation_config=model_config,
-                # )
-                regex = ""
+                regex_select = ""
                 for i, o in enumerate(value.options):
                     if i == 0:
-                        regex += o
+                        regex_select += o
                     else:
-                        regex += "|" + o
+                        regex_select += "|" + o
 
-                parser = RegexParser(regex)
+                parser = RegexParser(regex_select)
                 prefix_function = build_transformers_prefix_allowed_tokens_fn(
                     self.tokenizer, parser
                 )
