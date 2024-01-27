@@ -1,6 +1,7 @@
 import copy
 from typing import Any
 
+import numpy as np
 import regex
 import torch
 from lmformatenforcer import RegexParser
@@ -22,6 +23,7 @@ from transformers import (
 from ._gen import Gen
 from ._select import Select
 from .templates import LLAMA_CHAT_TEMPLATE
+from .trie import MarisaTrie, Trie
 
 
 class RegexStoppingCriteria(StoppingCriteria):
@@ -202,20 +204,39 @@ class Model:
                 )
                 model_config.update(generation_config.to_dict())
 
-                if value.regex_select is None:
-                    regex_select = ""
-                    for i, o in enumerate(value.options):
-                        if i == 0:
-                            regex_select += o
-                        else:
-                            regex_select += "|" + o
-                else:
-                    regex_select = value.regex_select
+                acc = []
 
-                parser = RegexParser(regex_select)
-                prefix_function = build_transformers_prefix_allowed_tokens_fn(
-                    self.tokenizer, parser
-                )
+                for e in value.options:
+                    tokens = self.tokenizer.encode(
+                        e, return_tensors="np", add_special_tokens=False
+                    ).squeeze(0)
+                    tokens = np.array(
+                        [
+                            t
+                            for t in tokens
+                            if self.tokenizer.decode([t], skip_special_tokens=True)
+                            != ""
+                        ]
+                    )
+                    tokens = np.concatenate(
+                        [tokens, np.array([self.tokenizer.eos_token_id])]
+                    )
+
+                    acc.append(
+                        list(
+                            np.concatenate(
+                                [
+                                    input_ids.to("cpu").numpy().squeeze(0),
+                                    tokens,
+                                ]
+                            )
+                        )
+                    )
+
+                # [self.tokenizer.bos_token_id] +
+                trie = MarisaTrie(acc)
+
+                prefix_function = lambda batch_id, sent: trie.get(sent.tolist())
 
                 output = self.model.generate(
                     inputs=input_ids,
