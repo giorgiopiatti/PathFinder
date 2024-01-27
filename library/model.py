@@ -1,6 +1,7 @@
 import copy
 from typing import Any
 
+import regex
 import torch
 from lmformatenforcer import RegexParser
 from lmformatenforcer.integrations.transformers import (
@@ -21,8 +22,6 @@ from transformers import (
 from ._gen import Gen
 from ._select import Select
 from .templates import LLAMA_CHAT_TEMPLATE
-
-import regex
 
 
 class RegexStoppingCriteria(StoppingCriteria):
@@ -203,12 +202,15 @@ class Model:
                 )
                 model_config.update(generation_config.to_dict())
 
-                regex_select = ""
-                for i, o in enumerate(value.options):
-                    if i == 0:
-                        regex_select += o
-                    else:
-                        regex_select += "|" + o
+                if value.regex_select is None:
+                    regex_select = ""
+                    for i, o in enumerate(value.options):
+                        if i == 0:
+                            regex_select += o
+                        else:
+                            regex_select += "|" + o
+                else:
+                    regex_select = value.regex_select
 
                 parser = RegexParser(regex_select)
                 prefix_function = build_transformers_prefix_allowed_tokens_fn(
