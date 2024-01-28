@@ -243,6 +243,7 @@ class Model:
                 if self.tokenizer.decode(prefix[-1]) == "":
                     prefix = prefix[:-1]
                 prefix = tuple(prefix)
+                prompt_length = len(prefix)
                 full_match = False
                 need_more_tokens = True
                 while need_more_tokens:
@@ -252,16 +253,11 @@ class Model:
                         inputs=torch.tensor([prefix], device=self.model.device),
                         generation_config=generation_config,
                     )
-                    logprobs_result = gen_obj.scores[0][0]
+                    logprobs_result = gen_obj.scores[0][0].cpu().numpy()
 
-                    top_logprobs = []
-                    for token, v in enumerate(logprobs_result):
-                        top_logprobs.append((token, v))
+                    top_logprobs = np.argsort(-logprobs_result)
 
-                    # sort from highest to lowest
-                    top_logprobs.sort(key=lambda x: x[1], reverse=True)
-
-                    for i, (token, _) in enumerate(top_logprobs):
+                    for i, token in enumerate(top_logprobs):
                         # check if the token is in the trie
                         current_prefix = prefix + (token,)
                         try:
@@ -287,6 +283,9 @@ class Model:
                                 need_more_tokens = False
                                 break
 
+                res = self.tokenizer.decode(
+                    prefix[prompt_length:], skip_special_tokens=False
+                )
                 if res.endswith(self.tokenizer.eos_token):
                     res = res[: -len(self.tokenizer.eos_token)]
             else:
