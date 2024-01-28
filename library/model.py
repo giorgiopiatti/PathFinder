@@ -2,6 +2,7 @@ import copy
 from typing import Any
 
 import numpy as np
+import pygtrie
 import regex
 import torch
 from lmformatenforcer import RegexParser
@@ -12,6 +13,8 @@ from lmformatenforcer.integrations.transformers import (
 from transformers import (
     AutoConfig,
     GenerationConfig,
+    LogitsProcessor,
+    LogitsProcessorList,
     MaxLengthCriteria,
     PreTrainedModel,
     PreTrainedTokenizer,
@@ -47,6 +50,22 @@ class RegexStoppingCriteria(StoppingCriteria):
             if s.search(current_string):
                 return True
         return False
+
+
+class BiasLogitsProcessor(LogitsProcessor):
+    """Simple token biasing."""
+
+    def __init__(self, model, vocab_size, logit_bias):
+        """Build a new BiasLogitsProcessor."""
+        import torch
+
+        self.bias_vector = torch.zeros(vocab_size)
+        for token, bias in logit_bias.items():
+            self.bias_vector[token] = bias
+        self.bias_vector = self.bias_vector.to(model.device)
+
+    def __call__(self, input_ids, scores):
+        return scores + self.bias_vector
 
 
 class Model:
@@ -195,7 +214,10 @@ class Model:
             elif isinstance(value, Select):
                 model_config = AutoConfig.from_pretrained(self.model.name_or_path)
                 generation_config = GenerationConfig(
-                    max_length=4096,
+                    max_new_tokens=1,
+                    return_dict_in_generate=True,
+                    output_scores=True,
+                    renormalize_logits=True,
                     pad_token_id=(
                         model_config.pad_token_id
                         if model_config.pad_token_id
@@ -204,48 +226,134 @@ class Model:
                 )
                 model_config.update(generation_config.to_dict())
 
-                acc = []
-
-                for e in value.options:
-                    tokens = self.tokenizer.encode(
-                        e, return_tensors="np", add_special_tokens=False
-                    ).squeeze(0)
-                    tokens = np.array(
-                        [
-                            t
-                            for t in tokens
-                            if self.tokenizer.decode([t], skip_special_tokens=True)
-                            != ""
-                        ]
+                options_tokens = [
+                    self.tokenizer.encode(
+                        prompt_render + option + self.tokenizer.eos_token,
+                        add_special_tokens=False,
                     )
-                    tokens = np.concatenate(
-                        [tokens, np.array([self.tokenizer.eos_token_id])]
-                    )
+                    for option in value.options
+                ]
+                # build a trie of the options
+                token_map = pygtrie.Trie()
+                for i, option in enumerate(options_tokens):
+                    token_map[option] = i
 
-                    acc.append(
-                        list(
-                            np.concatenate(
-                                [
-                                    input_ids.to("cpu").numpy().squeeze(0),
-                                    tokens,
-                                ]
-                            )
+                def recursive_select(current_prefix, allow_token_extension=True):
+                    """This returns a dictionary of scores for each option (keyed by the option index)."""
+
+                    # find which select options are possible
+                    try:
+                        extension_options = token_map.items(prefix=current_prefix)
+                    except KeyError:
+                        return {}
+
+                    # this is the dictionary of logprobs for each option we will return
+                    # note that the logprobs are just for this branch point and below in the decision tree
+                    logprobs_out = {option[0]: -1000 for option in extension_options}
+
+                    # extend the prefix with the longest common prefix among the valid options
+                    # we also stop early if we have one option
+                    if len(extension_options) == 1:
+                        logprobs_out[extension_options[0][0]] = (
+                            0  # probability of 1.0 that we will select the only valid option
                         )
+                        return logprobs_out
+                    else:
+                        match_index = len(current_prefix)
+                        for i in range(
+                            len(current_prefix),
+                            min([len(o[0]) for o in extension_options]),
+                        ):
+                            if len(set([o[0][i] for o in extension_options])) > 1:
+                                break
+                            match_index += 1
+                        if match_index > len(current_prefix):
+                            current_prefix += extension_options[0][0][
+                                len(current_prefix) : match_index
+                            ]
+                            # extension_options = [(option[i:], index) for option,index in extension_options]
+
+                    # bias the logits towards valid options
+                    logit_bias = {}
+                    for option_tokens, index in extension_options:
+                        logit_bias[option_tokens[match_index]] = 100
+
+                    # check for where we are at the end of the prefix
+                    if len(logit_bias) == 0 and current_prefix in [
+                        o[0] for o in extension_options
+                    ]:
+                        logprobs_out[current_prefix] = 0
+                        return logprobs_out
+
+                    # generate the token logprobs
+                    gen_obj = self.model.generate(
+                        inputs=input_ids,
+                        generation_config=generation_config,
+                        logits_processor=LogitsProcessorList(
+                            [
+                                BiasLogitsProcessor(
+                                    self.model, self.tokenizer.vocab_size, logit_bias
+                                )
+                            ]
+                        ),
                     )
 
-                # [self.tokenizer.bos_token_id] +
-                trie = MarisaTrie(acc)
+                    logprobs_result = gen_obj.scores[0][0]
 
-                prefix_function = lambda batch_id, sent: trie.get(sent.tolist())
+                    # convert the logprobs keys from string back to token ids if needed
+                    top_logprobs = {}
+                    for k, v in enumerate(logprobs_result):
+                        top_logprobs[k] = k
 
-                output = self.model.generate(
-                    inputs=input_ids,
-                    generation_config=generation_config,
-                    prefix_allowed_tokens_fn=prefix_function,
-                )
-                res = self.tokenizer.decode(
-                    output[0][input_ids.shape[1] :], skip_special_tokens=False
-                )
+                    # no need to explore all branches if we are just taking the greedy max
+                    # if logprobs is None:
+                    #     max_key = max(top_logprobs, key=top_logprobs.get)
+                    #     top_logprobs = {max_key: top_logprobs[max_key]}
+
+                    # for each possible next token, see if it grows the prefix in a valid way
+                    for token, logprob in top_logprobs.items():
+                        sub_logprobs = recursive_select(current_prefix + [token])
+
+                        # we add the logprob of this token to the logprob of the suffix
+                        for k in sub_logprobs:
+
+                            # p1 = np.exp(logprobs_out[k])
+                            # p2 = np.exp(sub_logprobs[k] + logprob)
+                            # or_prob = p1 + p2 - p1 * p2
+                            # logprobs_out[k] = np.log(or_prob)
+
+                            # New Code Using Log-Sum-Exp
+                            a = logprobs_out[k]
+                            b = sub_logprobs[k] + logprob
+
+                            # Computing log(exp(a) + exp(b)) in a stable way
+                            logprobs_out[k] = np.logaddexp(a, b)
+
+                            # logprobs_out[k] = np.log(
+                            #     np.exp(logprobs_out[k]) - np.exp(a + b)
+                            # )
+                            x = logprobs_out[k]
+                            if x > (a + b):
+                                logprobs_out[k] = x + np.log1p(-np.exp(a + b - x))
+                            else:
+                                logprobs_out[k] = -np.inf
+
+                            # logprobs_out[k] = np.log1p(-np.exp(a + b - logprobs_out[k]))
+
+                    return logprobs_out
+
+                # recursively compute the logprobs for each option
+                option_logprobs = recursive_select([])
+
+                # convert the key from a token list to a string
+                coded_prompt = self.tokenizer.decode(input_ids[0])
+                option_logprobs = {
+                    self.tokenizer.decode(k)[len(coded_prompt) :]: v
+                    for k, v in option_logprobs.items()
+                }
+
+                # select the option with the highest logprob
+                res = max(option_logprobs, key=option_logprobs.get)
                 if res.endswith(self.tokenizer.eos_token):
                     res = res[: -len(self.tokenizer.eos_token)]
             else:
