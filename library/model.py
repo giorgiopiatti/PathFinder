@@ -72,6 +72,9 @@ class Model:
     open_block = None
     empty_block = True
 
+    token_in = 0
+    token_out = 0
+
     def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
         self.model = model
         self.template = None
@@ -211,6 +214,8 @@ class Model:
                         if p.search(res):
                             res = p.sub("", res)
                             break
+                lm.token_in = len(input_ids[0])
+                lm.token_out = len(output[0]) - len(input_ids[0])
             elif isinstance(value, Select):
                 model_config = AutoConfig.from_pretrained(self.model.name_or_path)
                 generation_config = GenerationConfig(
@@ -247,7 +252,6 @@ class Model:
                 full_match = False
                 need_more_tokens = True
                 while need_more_tokens:
-
                     # generate the token logprobs
                     gen_obj = self.model.generate(
                         inputs=torch.tensor([prefix], device=self.model.device),
@@ -286,6 +290,8 @@ class Model:
                 res = self.tokenizer.decode(
                     prefix[prompt_length:], skip_special_tokens=False
                 )
+                lm.token_in = prompt_length
+                lm.token_out = len(prefix) - prompt_length
                 if res.endswith(self.tokenizer.eos_token):
                     res = res[: -len(self.tokenizer.eos_token)]
             else:
