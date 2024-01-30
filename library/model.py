@@ -92,6 +92,23 @@ class Model:
             prompt_render = self.chat
         return prompt_render
 
+    def _format_chat_entry_as_html(self, entry):
+        # Bold the role tag
+        role_tag = f'<strong>{entry["role"].upper()}</strong>'
+        return f'<div>{role_tag}: {entry["content"]}</div>'
+
+    def html(self):
+        if isinstance(self.chat, list):
+            # Process each chat entry and format it as HTML
+            html_entries = [
+                self._format_chat_entry_as_html(entry) for entry in self.chat
+            ]
+            prompt_render = "".join(html_entries)
+        else:
+            # Format a single chat entry as HTML
+            prompt_render = self._format_chat_entry_as_html(self.chat)
+        return prompt_render
+
     def __str__(self) -> str:
         pass
 
