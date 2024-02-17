@@ -197,14 +197,18 @@ class Model:
                 output = self.model.generate(
                     inputs=input_ids,
                     generation_config=generation_config,
-                    stopping_criteria=StoppingCriteriaList(
-                        [
-                            RegexStoppingCriteria(
-                                value.stop_regex,
-                                self.tokenizer.decode,
-                                input_ids.shape[1],
-                            )
-                        ],
+                    stopping_criteria=(
+                        StoppingCriteriaList(
+                            [
+                                RegexStoppingCriteria(
+                                    value.stop_regex,
+                                    self.tokenizer.decode,
+                                    input_ids.shape[1],
+                                )
+                            ]
+                        )
+                        if value.stop_regex
+                        else None
                     ),
                 )
 
@@ -214,7 +218,7 @@ class Model:
                 if res.endswith(self.tokenizer.eos_token):
                     res = res[: -len(self.tokenizer.eos_token)]
                 # remove end pattern if it exists and save_stop_text is True
-                if not value.save_stop_text:
+                if not value.save_stop_text and value.stop_regex is not None:
                     if isinstance(value.stop_regex, str):
                         stop_regex = [regex.compile(value.stop_regex)]
                     else:
