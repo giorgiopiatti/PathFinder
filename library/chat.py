@@ -60,3 +60,9 @@ class MetaMath(Model):
         chat_template = open(template_path).read()
         chat_template = chat_template.replace("    ", "").replace("\n", "")
         self.template = chat_template
+
+
+class MistralInstruct(Model):
+    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
+        super().__init__(model, tokenizer)
+        self.template = MIXTRAL_INSTRUCT_TEMPLATE
