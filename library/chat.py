@@ -38,3 +38,25 @@ class ChatML(Model):
         chat_template = open(template_path).read()
         chat_template = chat_template.replace("    ", "").replace("\n", "")
         self.template = chat_template
+
+
+class DeepSeek(Model):
+    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
+        super().__init__(model, tokenizer)
+        template_path = os.path.join(
+            os.path.dirname(__file__), "./templates_jinja/deep_seek.jinja"
+        )
+        chat_template = open(template_path).read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        self.template = chat_template
+
+
+class MetaMath(Model):
+    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
+        super().__init__(model, tokenizer)
+        template_path = os.path.join(
+            os.path.dirname(__file__), "./templates_jinja/alpaca.jinja"
+        )
+        chat_template = open(template_path).read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        self.template = chat_template
