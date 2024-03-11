@@ -189,7 +189,11 @@ class Model:
                             "top_p": value.top_p,
                         }
                         if value.temperature != 0.0
-                        else {}
+                        else {
+                            "do_sample": False,
+                            "temperature": 1.0,
+                            "top_p": 1.0,
+                        }
                     ),
                 )
                 model_config.update(generation_config.to_dict())
