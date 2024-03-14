@@ -251,17 +251,19 @@ class Model:
                 )
                 model_config.update(generation_config.to_dict())
 
-                options_tokens = [
-                    self.tokenizer.encode(
-                        prompt_render + option,
-                        add_special_tokens=False,
+                options_text = [
+                    self.tokenizer.decode(
+                        self.tokenizer.encode(
+                            prompt_render + option, add_special_tokens=False
+                        ),
+                        skip_special_tokens=False,
                     )
                     for option in value.options
                 ]
                 # build a trie of the options
                 token_map = pygtrie.Trie()
-                for i, option in enumerate(options_tokens):
-                    token_map[option] = i
+                for i, option in enumerate(options_text):
+                    token_map[option] = option
 
                 # hack to deal with sentencepiece "" empty
                 prefix = input_ids[0].tolist()
@@ -284,15 +286,21 @@ class Model:
                     for i, token in enumerate(top_logprobs):
                         # check if the token is in the trie
                         current_prefix = prefix + (token,)
+                        current_prefix_decoded = self.tokenizer.decode(
+                            current_prefix, skip_special_tokens=False
+                        )
                         try:
-                            extension_options = token_map.items(prefix=current_prefix)
+                            extension_options = token_map.items(
+                                prefix=current_prefix_decoded
+                            )
                             partial_match = True
                         except KeyError:
                             partial_match = False
                         if partial_match:
                             prefix = current_prefix
+
                             for e in extension_options:
-                                if e[0] == current_prefix:
+                                if e[1] == current_prefix_decoded:
                                     # we have a full match
                                     full_match = True
                                     if len(extension_options) == 1:
