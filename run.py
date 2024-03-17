@@ -1,6 +1,7 @@
 import pytest
-from library import LlamaChat, assistant, gen, select, user
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from library import LlamaChat, assistant, gen, select, user
 
 arg_LLM = "TheBloke/Llama-2-7B-GPTQ"
 model = AutoModelForCausalLM.from_pretrained(

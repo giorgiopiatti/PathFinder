@@ -5,10 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Module",
+            "name": "run",
             "type": "python",
             "request": "launch",
             "module": "run",
+            "justMyCode": false
+        },
+        {
+            "name": "api",
+            "type": "python",
+            "request": "launch",
+            "module": "api",
             "justMyCode": false
         }
     ]
