@@ -164,7 +164,7 @@ class ModelAPI:
                     lm.regex += r"(.+?)"
                     self.conditions.append((value.name, None))
                 else:
-                    lm.regex += rf"(.+?)({value.stop_regex})"
+                    lm.regex += rf"(.+?)({value.stop_regex})(.*?)"
                     self.conditions.append((value.name, value.stop_regex))
 
             elif isinstance(value, Select):
@@ -194,15 +194,15 @@ class ModelAPI:
                 match = regex.findall(self.regex, res, regex.DOTALL)[0]
                 # save here
 
-                skip_next = False
+                skip_next = 0
                 save_index = 0
                 for i, m in enumerate(match):
-                    if skip_next:
-                        skip_next = False
+                    if skip_next > 0:
+                        skip_next -= 1
                         continue  # skipping stop token
                     self._variables[self.conditions[save_index][0]] = m
-                    if type(self.conditions[save_index][1] is str):
-                        skip_next = True
+                    if type(self.conditions[save_index][1]) is str:
+                        skip_next = 2  # skip stop token and next part " " or "\n" or similar things
                     save_index += 1
                     if i == len(self.conditions) - 1:
                         break  # skipping last part
