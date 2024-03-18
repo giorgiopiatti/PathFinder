@@ -75,6 +75,8 @@ class ModelAPI:
         self.chat = []
         self.regex = r""
         self.conditions = []
+        self.temperature = 0.7
+        self.top_p = 1.0
 
         self.pending_generation = False
 
@@ -156,6 +158,8 @@ class ModelAPI:
                     )
             # any string regex then stop token
             if isinstance(value, Gen):
+                self.temperature = value.temperature
+                self.top_p = value.top_p
                 if value.stop_regex is None:
                     lm.regex += r"(.+?)"
                     self.conditions.append((value.name, None))
@@ -180,6 +184,8 @@ class ModelAPI:
             out = completions_with_backoff(
                 model=self.model_name,
                 messages=self.chat,
+                temperature=self.temperature,
+                top_p=self.top_p,
             )
             res = out.choices[0].message.content
             self.chat[-1]["content"] += res
