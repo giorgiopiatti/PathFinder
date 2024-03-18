@@ -31,6 +31,14 @@ from .trie import MarisaTrie, Trie
 client = OpenAI()
 
 
+import backoff
+
+
+@backoff.on_exception(backoff.expo, openai.RateLimitError)
+def completions_with_backoff(**kwargs):
+    return client.chat.completions.create(**kwargs)
+
+
 class DummyConfig:
     name_or_path: str
 
@@ -169,21 +177,10 @@ class ModelAPI:
 
     def run(self):
         if self.pending_generation:
-            fail_count = 0
-            while True:
-                try_again = False
-                try:
-                    out = client.chat.completions.create(
-                        model=self.model_name,
-                        messages=self.chat,
-                    )
-                except:
-                    sleep(10)
-                    try_again = True
-                    fail_count += 1
-
-                if not try_again:
-                    break
+            out = completions_with_backoff(
+                model=self.model_name,
+                messages=self.chat,
+            )
             res = out.choices[0].message.content
             self.chat[-1]["content"] += res
             # given regex extract the variables
