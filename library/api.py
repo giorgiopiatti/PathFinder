@@ -144,7 +144,9 @@ class ModelAPI:
                 lm.chat[-1]["content"] += value
             else:
                 lm.chat += value
-            match = regex.match(value + r"(.*?)", lm.text_to_consume, regex.DOTALL)
+            match = regex.match(
+                regex.escape(value) + r"(.*?)", lm.text_to_consume, regex.DOTALL
+            )
             if match:
                 lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
             else:
@@ -173,7 +175,7 @@ class ModelAPI:
                     r = r"(\d+)"
                 else:
                     r = r"("
-                    r += r"|".join(value.options)
+                    r += r"|".join([regex.escape(o) for o in value.options])
                     r += r")"
                 self.run(lm, r, value.name, False, False)
 
