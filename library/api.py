@@ -73,8 +73,7 @@ class ModelAPI:
         self._variables_log_probs = {}
 
         self.chat = []
-        self.regex = r""
-        self.conditions = []
+        self.text_to_consume = ""
         self.temperature = 0.7
         self.top_p = 1.0
 
@@ -145,11 +144,12 @@ class ModelAPI:
                 lm.chat[-1]["content"] += value
             else:
                 lm.chat += value
+            match = regex.match(value + r"(.*?)", lm.text_to_consume, regex.DOTALL)
+            if match:
+                lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
+            else:
+                lm.text_to_consume = ""
         else:
-            if not self.pending_generation:
-                lm.regex = r""
-            lm.pending_generation = True
-
             if isinstance(lm.chat, list):
                 if lm.chat[-1]["role"] != "assistant":
                     raise Exception(
@@ -158,61 +158,64 @@ class ModelAPI:
                     )
             # any string regex then stop token
             if isinstance(value, Gen):
-                self.temperature = value.temperature
-                self.top_p = value.top_p
+                lm.temperature = value.temperature
+                lm.top_p = value.top_p
                 if value.stop_regex is None:
-                    lm.regex += r"(.*?)"
-                    self.conditions.append((value.name, None))
+                    r = r"(.*?)"
                 else:
-                    lm.regex += rf"(.*?)({value.stop_regex})(.*?)"
-                    self.conditions.append((value.name, value.stop_regex))
+                    r = rf"(.*?)({value.stop_regex}?)"
+
+                self.run(lm, r, value.name, True, value.save_stop_text)
 
             elif isinstance(value, Select):
                 # detect if value.options is a list of string of numbers, if so use a digit regex
                 if all(can_be_int(x) for x in value.options):
-                    lm.regex += r"(\d+)"
+                    r = r"(\d+)"
                 else:
-                    lm.regex += r"("
-                    lm.regex += r"|".join(value.options)
-                    lm.regex += r")"
-                self.conditions.append((value.name, value.options))
+                    r = r"("
+                    r += r"|".join(value.options)
+                    r += r")"
+                self.run(lm, r, value.name, False, False)
 
         return lm
 
-    def run(self):
-        if self.pending_generation:
+    def run(self, lm, r, name, is_gen, save_stop_text):
+        if lm.text_to_consume == "":
             out = completions_with_backoff(
                 model=self.model_name,
-                messages=self.chat,
-                temperature=self.temperature,
-                top_p=self.top_p,
+                messages=lm.chat,
+                temperature=lm.temperature,
+                top_p=lm.top_p,
             )
-            res = out.choices[0].message.content
-            self.chat[-1]["content"] += res
-            # given regex extract the variables
-            if self.regex != "":
-                match = regex.findall(self.regex, res, regex.DOTALL)[0]
-                # save here
+            lm.text_to_consume = out.choices[0].message.content
 
-                skip_next = 0
-                save_index = 0
-                for i, m in enumerate(match):
-                    if skip_next > 0:
-                        skip_next -= 1
-                        continue  # skipping stop token
-                    self._variables[self.conditions[save_index][0]] = m
-                    if type(self.conditions[save_index][1]) is str:
-                        skip_next = 2  # skip stop token and next part " " or "\n" or similar things
-                    save_index += 1
-                    if i == len(self.conditions) - 1:
-                        break  # skipping last part
-                # what to do if do not match?
-            self.pending_generation = False
+        if regex.search(r, lm.text_to_consume):
+            match = regex.match(r + r"(.*?)", lm.text_to_consume, regex.DOTALL)
+            if match:
+                # complete match
+                match_res = match.group()
+                if save_stop_text:
+                    lm.chat[-1]["content"] += match.group()
+                    lm._variables[name] = match.group()
+                    lm.text_to_consume = lm.text_to_consume[len(match_res) :]
+                else:
+                    lm.chat[-1]["content"] += match.group(1)
+                    lm._variables[name] = match.group(1)
+                    lm.text_to_consume = lm.text_to_consume[len(match.group(1)) :]
+            else:
+                match = regex.findall(r, lm.text_to_consume, regex.DOTALL)[0]
+                lm.text_to_consume = ""  # reset since this was a search of the response
+                lm._variables[name] = match[0]
+                lm.chat[-1]["content"] += match[0]
+        elif is_gen:
+            # not stop token
+            lm.chat[-1]["content"] += lm.text_to_consume
+            lm.text_to_consume = ""
+            lm._variables[name] = ""
+        else:
+            raise Exception(f"Cant find {r} in {lm.text_to_consume}")
 
     def __getitem__(self, key):
-        if self.pending_generation:
-            self.run()
-
         if key in self._variables:
             return self._variables[key]
 
