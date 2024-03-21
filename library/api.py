@@ -161,10 +161,10 @@ class ModelAPI:
                 self.temperature = value.temperature
                 self.top_p = value.top_p
                 if value.stop_regex is None:
-                    lm.regex += r"(.+?)"
+                    lm.regex += r"(.*?)"
                     self.conditions.append((value.name, None))
                 else:
-                    lm.regex += rf"(.+?)({value.stop_regex})(.*?)"
+                    lm.regex += rf"(.*?)({value.stop_regex})(.*?)"
                     self.conditions.append((value.name, value.stop_regex))
 
             elif isinstance(value, Select):
