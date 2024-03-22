@@ -165,7 +165,7 @@ class ModelAPI:
                 if value.stop_regex is None:
                     r = r"(.*?)"
                 else:
-                    r = rf"(.*?)({value.stop_regex}?)"
+                    r = rf"(.*?)({value.stop_regex})"
 
                 self.run(lm, r, value.name, True, value.save_stop_text)
 
@@ -207,8 +207,8 @@ class ModelAPI:
             else:
                 match = regex.findall(r, lm.text_to_consume, regex.DOTALL)[0]
                 lm.text_to_consume = ""  # reset since this was a search of the response
-                lm._variables[name] = match[0]
-                lm.chat[-1]["content"] += match[0]
+                lm._variables[name] = match
+                lm.chat[-1]["content"] += match
         elif is_gen:
             # not stop token
             lm.chat[-1]["content"] += lm.text_to_consume
