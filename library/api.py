@@ -212,8 +212,8 @@ class ModelAPI:
         elif is_gen:
             # not stop token
             lm.chat[-1]["content"] += lm.text_to_consume
+            lm._variables[name] = lm.text_to_consume
             lm.text_to_consume = ""
-            lm._variables[name] = ""
         else:
             raise Exception(f"Cant find {r} in {lm.text_to_consume}")
 
