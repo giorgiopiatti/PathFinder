@@ -2,7 +2,6 @@ import copy
 from time import sleep
 from typing import Any
 
-import guidance
 import numpy as np
 import openai
 import pygtrie
