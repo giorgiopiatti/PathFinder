@@ -186,9 +186,9 @@ class ModelAPI:
             )
             lm.text_to_consume = out.choices[0].message.content
             # remove any prefix, if any
-            p = lm.chat[-1]["content"]
+            p = lm.chat[-1]["content"].strip()
             if lm.text_to_consume.startswith(p):
-                lm.text_to_consume = lm.text_to_consume[len(p) :]
+                lm.text_to_consume = lm.text_to_consume[len(p):]
 
         if regex.search(r, lm.text_to_consume):
             match = regex.match(r + r"(.*?)", lm.text_to_consume, regex.DOTALL)

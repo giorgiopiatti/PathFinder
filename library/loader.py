@@ -1,7 +1,7 @@
 import torch
 from auto_gptq import exllama_set_max_input_length
 from optimum.bettertransformer import BetterTransformer
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .api import ModelAPI
 from .chat import (
@@ -53,14 +53,17 @@ def get_model(name, is_api=False):
             branch = "main"
             extend_context_length = False
 
+    model_config = AutoConfig.from_pretrained(name)
+
     model = AutoModelForCausalLM.from_pretrained(
         name,
         device_map="auto",
         trust_remote_code=trust_remote_code,
         revision=branch,
-        attn_implementation=(
-            "flash_attention_2" if not "gptq" in name.lower() else None
-        ),
+        # attn_implementation=(
+        #     "flash_attention_2" if not "gptq" in name.lower() else None
+        # ),
+        torch_dtype=model_config.torch_dtype if not "gptq" in name.lower() else None,
     )
 
     if "gptq" in name.lower() and extend_context_length:
