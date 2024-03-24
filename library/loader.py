@@ -1,3 +1,4 @@
+import torch
 from auto_gptq import exllama_set_max_input_length
 from optimum.bettertransformer import BetterTransformer
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -21,16 +22,10 @@ def get_model(name, is_api=False):
     trust_remote_code = False
     use_fast = True
     extend_context_length = True
-    load_bettertransformer = False
     if "metamath" in name.lower():
         cls = MetaMath
     elif "llama" in name.lower():
         cls = LlamaChat
-    # elif "yi" in name.lower():
-    #     cls = YiChat
-    #     trust_remote_code = True
-    #     use_fast = False
-    #     extend_context_length = False
     elif "smaug" in name.lower():
         cls = LlamaChat
     elif "vicuna" in name.lower():
@@ -63,17 +58,14 @@ def get_model(name, is_api=False):
         device_map="auto",
         trust_remote_code=trust_remote_code,
         revision=branch,
+        attn_implementation=(
+            "flash_attention_2" if not "gptq" in name.lower() else None
+        ),
     )
-
-    if load_bettertransformer:
-        # NOTE solves this warning:
-        # The current implementation of Falcon calls `torch.scaled_dot_product_attention` directly, this will be deprecated in the future
-        # in favor of the `BetterTransformer` API. Please install the latest optimum library with `pip install -U optimum` and
-        # call `model.to_bettertransformer()` to benefit from `torch.scaled_dot_product_attention` and future performance optimizations.
-        # https://huggingface.co/docs/optimum/bettertransformer/overview
-        model = BetterTransformer.transform(model, keep_original_model=False)
 
     if "gptq" in name.lower() and extend_context_length:
         model = exllama_set_max_input_length(model, max_input_length=4096)
+
+    model = torch.compile(model)
     tokenizer = AutoTokenizer.from_pretrained(name, use_fast=use_fast)
     return cls(model=model, tokenizer=tokenizer)
