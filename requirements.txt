@@ -1,5 +1,11 @@
-torch
+# HF fast inference
 transformers
+optimum
+einops
+auto_gptq
+# APIs
+backoff
+openai
+# path-finder specific
 pygtrie
 numpy
-backoff
