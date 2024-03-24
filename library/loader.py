@@ -21,7 +21,7 @@ def get_model(name, is_api=False):
     trust_remote_code = False
     use_fast = True
     extend_context_length = True
-    load_bettertransformer = True
+    load_bettertransformer = False
     if "metamath" in name.lower():
         cls = MetaMath
     elif "llama" in name.lower():

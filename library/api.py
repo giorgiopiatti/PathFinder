@@ -2,6 +2,7 @@ import copy
 from time import sleep
 from typing import Any
 
+import backoff
 import numpy as np
 import openai
 import pygtrie
@@ -26,16 +27,6 @@ from ._select import Select
 from .model import Model
 from .templates import LLAMA_CHAT_TEMPLATE
 from .trie import MarisaTrie, Trie
-
-client = OpenAI()
-
-
-import backoff
-
-
-@backoff.on_exception(backoff.expo, openai.RateLimitError)
-def completions_with_backoff(**kwargs):
-    return client.chat.completions.create(**kwargs)
 
 
 class DummyConfig:
@@ -77,6 +68,7 @@ class ModelAPI:
         self.top_p = 1.0
 
         self.pending_generation = False
+        self.client = OpenAI()
 
     def _current_prompt(self):
         if isinstance(self.chat, list):
@@ -181,6 +173,10 @@ class ModelAPI:
         return lm
 
     def run(self, lm, r, name, is_gen, save_stop_text):
+        @backoff.on_exception(backoff.expo, openai.RateLimitError)
+        def completions_with_backoff(**kwargs):
+            return self.client.chat.completions.create(**kwargs)
+
         if lm.text_to_consume == "":
             out = completions_with_backoff(
                 model=self.model_name,
