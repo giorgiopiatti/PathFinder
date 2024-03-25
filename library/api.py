@@ -22,6 +22,7 @@ from transformers import (
     pipeline,
 )
 
+from ._find import Find
 from ._gen import Gen
 from ._select import Select
 from .model import Model
@@ -67,7 +68,6 @@ class ModelAPI:
         self.temperature = 0.7
         self.top_p = 1.0
 
-        self.pending_generation = False
         self.client = OpenAI()
 
     def _current_prompt(self):
@@ -130,7 +130,7 @@ class ModelAPI:
                 }
             )
 
-        if isinstance(value, str) and not self.pending_generation:
+        if isinstance(value, str):
             if isinstance(lm.chat, list):
                 lm.chat[-1]["content"] += value
             else:
@@ -159,7 +159,10 @@ class ModelAPI:
                     r = rf"(.*?)({value.stop_regex})"
 
                 self.run(lm, r, value.name, True, value.save_stop_text)
-
+            elif isinstance(value, Find):
+                lm.temperature = value.temperature
+                lm.top_p = value.top_p
+                self.run_find(lm, value.regex, value.name)
             elif isinstance(value, Select):
                 # detect if value.options is a list of string of numbers, if so use a digit regex
                 if all(can_be_int(x) for x in value.options):
@@ -171,6 +174,30 @@ class ModelAPI:
                 self.run(lm, r, value.name, False, False)
 
         return lm
+
+    def run_find(self, lm, r, name):
+        @backoff.on_exception(backoff.expo, openai.RateLimitError)
+        def completions_with_backoff(**kwargs):
+            return self.client.chat.completions.create(**kwargs)
+
+        if lm.text_to_consume == "":
+            out = completions_with_backoff(
+                model=self.model_name,
+                messages=lm.chat,
+                temperature=lm.temperature,
+                top_p=lm.top_p,
+            )
+            lm.text_to_consume = out.choices[0].message.content
+
+        lm._variables[f"PATHFINDER_ORIGINAL_{name}"] = lm.text_to_consume
+        lm.chat[-1]["content"] += lm.text_to_consume
+
+        match = regex.search(r, lm.text_to_consume)
+        if match:
+            res = match.group(0)
+            lm._variables[name] = res
+        else:
+            raise Exception(f"Regex {r} not found in {lm.text_to_consume}")
 
     def run(self, lm, r, name, is_gen, save_stop_text):
         @backoff.on_exception(backoff.expo, openai.RateLimitError)
@@ -188,7 +215,7 @@ class ModelAPI:
             # remove any prefix, if any
             p = lm.chat[-1]["content"].strip()
             if lm.text_to_consume.startswith(p):
-                lm.text_to_consume = lm.text_to_consume[len(p):]
+                lm.text_to_consume = lm.text_to_consume[len(p) :]
 
         if regex.search(r, lm.text_to_consume):
             match = regex.match(r + r"(.*?)", lm.text_to_consume, regex.DOTALL)

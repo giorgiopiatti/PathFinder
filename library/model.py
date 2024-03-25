@@ -18,6 +18,7 @@ from transformers import (
     pipeline,
 )
 
+from ._find import Find
 from ._gen import Gen
 from ._select import Select
 from .templates import LLAMA_CHAT_TEMPLATE
@@ -236,6 +237,52 @@ class Model:
                             break
                 lm.token_in = len(input_ids[0])
                 lm.token_out = len(output[0]) - len(input_ids[0])
+                original_res = res
+            elif isinstance(value, Find):
+                model_config = AutoConfig.from_pretrained(self.model.name_or_path)
+
+                generation_config = GenerationConfig(
+                    max_new_tokens=value.max_tokens,
+                    pad_token_id=(
+                        model_config.pad_token_id
+                        if model_config.pad_token_id
+                        else model_config.eos_token_id
+                    ),
+                    **(
+                        {
+                            "temperature": value.temperature,
+                            "do_sample": True,
+                            "top_p": value.top_p,
+                        }
+                        if value.temperature != 0.0
+                        else {
+                            "do_sample": False,
+                            "temperature": 1.0,
+                            "top_p": 1.0,
+                        }
+                    ),
+                )
+                model_config.update(generation_config.to_dict())
+
+                output = self.model.generate(
+                    inputs=input_ids, generation_config=generation_config
+                )
+
+                res = self.tokenizer.decode(
+                    output[0][input_ids.shape[1] :], skip_special_tokens=False
+                )
+                if res.endswith(self.tokenizer.eos_token):
+                    res = res[: -len(self.tokenizer.eos_token)]
+                # remove end pattern if it exists and save_stop_text is True
+                original_res = res
+                lm._variables[f"PATHFINDER_ORIGINAL_{value.name}"] = res
+                match = regex.search(value.regex, res)
+                if match:
+                    res = match.group(0)
+                else:
+                    raise Exception(f"Regex {value.regex} not found in {original_res}")
+                lm.token_in = len(input_ids[0])
+                lm.token_out = len(output[0]) - len(input_ids[0])
             elif isinstance(value, Select):
                 model_config = AutoConfig.from_pretrained(self.model.name_or_path)
                 generation_config = GenerationConfig(
@@ -322,14 +369,15 @@ class Model:
                 lm.token_out = len(prefix) - prompt_length
                 if res.endswith(self.tokenizer.eos_token):
                     res = res[: -len(self.tokenizer.eos_token)]
+                original_res = res
             else:
                 raise Exception("Invalid state")
             # Save the result
             lm._variables[value.name] = res
             if isinstance(lm.chat, list):
-                lm.chat[-1]["content"] += res
+                lm.chat[-1]["content"] += original_res
             else:
-                lm.chat += res
+                lm.chat += original_res
 
         return lm
 
