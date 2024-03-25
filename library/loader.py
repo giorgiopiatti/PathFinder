@@ -30,6 +30,8 @@ def get_model(name, is_api=False):
         cls = LlamaChat
     elif "vicuna" in name.lower():
         cls = Vicuna
+    elif "pro-mistral" in name.lower():
+        cls = ChatML
     elif "mistral" in name.lower() and "instruct" in name.lower():
         cls = MistralInstruct
     elif "mixtral" in name.lower() and "instruct" in name.lower():
