@@ -181,9 +181,14 @@ class ModelAPI:
             return self.client.chat.completions.create(**kwargs)
 
         if lm.text_to_consume == "":
+            tmp_chat = (
+                lm.chat[:-1]
+                if lm.chat[-1]["role"] == "assistant" and lm.chat[-1]["content"] == ""
+                else lm.chat
+            )
             out = completions_with_backoff(
                 model=self.model_name,
-                messages=lm.chat,
+                messages=tmp_chat,
                 temperature=lm.temperature,
                 top_p=lm.top_p,
             )
@@ -205,9 +210,15 @@ class ModelAPI:
             return self.client.chat.completions.create(**kwargs)
 
         if lm.text_to_consume == "":
+
+            tmp_chat = (
+                lm.chat[:-1]
+                if lm.chat[-1]["role"] == "assistant" and lm.chat[-1]["content"] == ""
+                else lm.chat
+            )
             out = completions_with_backoff(
                 model=self.model_name,
-                messages=lm.chat,
+                messages=tmp_chat,
                 temperature=lm.temperature,
                 top_p=lm.top_p,
             )
