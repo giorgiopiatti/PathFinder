@@ -16,9 +16,9 @@ from .chat import (
 )
 
 
-def get_model(name, is_api=False):
+def get_model(name, is_api=False, seed=42):
     if is_api:
-        return ModelAPI(name)
+        return ModelAPI(name, seed)
     trust_remote_code = False
     use_fast = True
     extend_context_length = True

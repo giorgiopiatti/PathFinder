@@ -1,4 +1,5 @@
 import copy
+import logging
 from time import sleep
 from typing import Any
 
@@ -56,7 +57,7 @@ class ModelAPI:
     token_in = 0
     token_out = 0
 
-    def __init__(self, model_name) -> None:
+    def __init__(self, model_name, seed) -> None:
         self.model_name = model_name
         self.model = DummyModel(DummyConfig(model_name))
 
@@ -67,6 +68,7 @@ class ModelAPI:
         self.text_to_consume = ""
         self.temperature = 0.7
         self.top_p = 1.0
+        self.seed = seed
 
         self.client = OpenAI()
 
@@ -191,7 +193,9 @@ class ModelAPI:
                 messages=tmp_chat,
                 temperature=lm.temperature,
                 top_p=lm.top_p,
+                seed=self.seed,
             )
+            logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
             lm.text_to_consume = out.choices[0].message.content
 
         lm._variables[f"PATHFINDER_ORIGINAL_{name}"] = lm.text_to_consume
@@ -221,7 +225,9 @@ class ModelAPI:
                 messages=tmp_chat,
                 temperature=lm.temperature,
                 top_p=lm.top_p,
+                seed=self.seed,
             )
+            logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
             lm.text_to_consume = out.choices[0].message.content
             # remove any prefix, if any
             p = lm.chat[-1]["content"].strip()
