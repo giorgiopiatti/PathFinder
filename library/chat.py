@@ -7,20 +7,35 @@ from .templates import LLAMA_CHAT_TEMPLATE, MIXTRAL_INSTRUCT_TEMPLATE
 
 
 class LlamaChat(Model):
-    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        super().__init__(model, tokenizer)
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trust_remote_code: bool = False,
+    ) -> None:
+        super().__init__(model, tokenizer, trust_remote_code)
         self.template = LLAMA_CHAT_TEMPLATE
 
 
 class MixtralInstruct(Model):
-    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        super().__init__(model, tokenizer)
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trust_remote_code: bool = False,
+    ) -> None:
+        super().__init__(model, tokenizer, trust_remote_code)
         self.template = MIXTRAL_INSTRUCT_TEMPLATE
 
 
 class Vicuna(Model):
-    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        super().__init__(model, tokenizer)
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trust_remote_code: bool = False,
+    ) -> None:
+        super().__init__(model, tokenizer, trust_remote_code)
         template_path = os.path.join(
             os.path.dirname(__file__), "./templates_jinja/vicuna.jinja"
         )
@@ -30,8 +45,13 @@ class Vicuna(Model):
 
 
 class ChatML(Model):
-    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        super().__init__(model, tokenizer)
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trust_remote_code: bool = False,
+    ) -> None:
+        super().__init__(model, tokenizer, trust_remote_code)
         template_path = os.path.join(
             os.path.dirname(__file__), "./templates_jinja/chatml.jinja"
         )
@@ -41,8 +61,13 @@ class ChatML(Model):
 
 
 class DeepSeek(Model):
-    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        super().__init__(model, tokenizer)
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trust_remote_code: bool = False,
+    ) -> None:
+        super().__init__(model, tokenizer, trust_remote_code)
         template_path = os.path.join(
             os.path.dirname(__file__), "./templates_jinja/deep_seek.jinja"
         )
@@ -52,8 +77,13 @@ class DeepSeek(Model):
 
 
 class MetaMath(Model):
-    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        super().__init__(model, tokenizer)
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trust_remote_code: bool = False,
+    ) -> None:
+        super().__init__(model, tokenizer, trust_remote_code)
         template_path = os.path.join(
             os.path.dirname(__file__), "./templates_jinja/alpaca.jinja"
         )
@@ -63,6 +93,11 @@ class MetaMath(Model):
 
 
 class MistralInstruct(Model):
-    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
-        super().__init__(model, tokenizer)
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trust_remote_code: bool = False,
+    ) -> None:
+        super().__init__(model, tokenizer, trust_remote_code)
         self.template = MIXTRAL_INSTRUCT_TEMPLATE

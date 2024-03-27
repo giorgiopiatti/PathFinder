@@ -3,6 +3,8 @@ transformers
 optimum
 einops
 auto_gptq
+tiktoken # for databricks models
+hf_transfer # fast transfer of models
 # APIs
 backoff
 openai

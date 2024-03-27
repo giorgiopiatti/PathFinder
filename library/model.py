@@ -71,7 +71,12 @@ class Model:
     token_in = 0
     token_out = 0
 
-    def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        trust_remote_code: bool = False,
+    ) -> None:
         self.model = model
         self.template = None
         self.tokenizer = tokenizer
@@ -80,6 +85,7 @@ class Model:
         self._variables_log_probs = {}
 
         self.chat = []
+        self.trust_remote_code = trust_remote_code
 
     def _current_prompt(self):
         if isinstance(self.chat, list):
@@ -158,8 +164,15 @@ class Model:
                         f"{value} can be used only in assistant block, not in"
                         f" {lm.chat[-1]['role']} block!"
                     )
+                tmp_chat = (
+                    lm.chat[:-1]
+                    if lm.chat[-1]["role"] == "assistant"
+                    and lm.chat[-1]["content"] == ""
+                    else lm.chat
+                )  # prevent empty assistant block to be passed to the tokenizer
+
                 prompt_render = self.tokenizer.apply_chat_template(
-                    lm.chat,
+                    tmp_chat,
                     tokenize=False,
                     add_generation_prompt=lm.chat[-1]["role"] != "assistant",
                     chat_template=self.template,
@@ -174,7 +187,10 @@ class Model:
 
             # Run specific generation
             if isinstance(value, Gen):
-                model_config = AutoConfig.from_pretrained(self.model.name_or_path)
+                model_config = AutoConfig.from_pretrained(
+                    self.model.name_or_path,
+                    trust_remote_code=self.trust_remote_code,
+                )
 
                 generation_config = GenerationConfig(
                     max_new_tokens=value.max_tokens,
@@ -239,7 +255,10 @@ class Model:
                 lm.token_out = len(output[0]) - len(input_ids[0])
                 original_res = res
             elif isinstance(value, Find):
-                model_config = AutoConfig.from_pretrained(self.model.name_or_path)
+                model_config = AutoConfig.from_pretrained(
+                    self.model.name_or_path,
+                    trust_remote_code=self.trust_remote_code,
+                )
 
                 generation_config = GenerationConfig(
                     max_new_tokens=value.max_tokens,

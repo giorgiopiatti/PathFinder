@@ -78,4 +78,4 @@ def get_model(name, is_api=False, seed=42):
     tokenizer = AutoTokenizer.from_pretrained(
         name, use_fast=use_fast, trust_remote_code=trust_remote_code
     )
-    return cls(model=model, tokenizer=tokenizer)
+    return cls(model=model, tokenizer=tokenizer, trust_remote_code=trust_remote_code)
