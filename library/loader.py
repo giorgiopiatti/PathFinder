@@ -33,6 +33,7 @@ def get_model(name, is_api=False, seed=42):
     elif "pro-mistral" in name.lower():
         cls = ChatML
     elif "dbrx-instruct" in name.lower():
+        trust_remote_code = True
         cls = ChatML
     elif "mistral" in name.lower() and "instruct" in name.lower():
         cls = MistralInstruct
