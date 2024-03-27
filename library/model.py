@@ -265,7 +265,21 @@ class Model:
                 model_config.update(generation_config.to_dict())
 
                 output = self.model.generate(
-                    inputs=input_ids, generation_config=generation_config
+                    inputs=input_ids,
+                    generation_config=generation_config,
+                    stopping_criteria=(
+                        StoppingCriteriaList(
+                            [
+                                RegexStoppingCriteria(
+                                    value.stop_regex,
+                                    self.tokenizer.decode,
+                                    input_ids.shape[1],
+                                )
+                            ]
+                        )
+                        if value.stop_regex
+                        else None
+                    ),
                 )
 
                 res = self.tokenizer.decode(
