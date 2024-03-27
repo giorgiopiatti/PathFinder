@@ -32,6 +32,8 @@ def get_model(name, is_api=False, seed=42):
         cls = Vicuna
     elif "pro-mistral" in name.lower():
         cls = ChatML
+    elif "dbrx-instruct" in name.lower():
+        cls = ChatML
     elif "mistral" in name.lower() and "instruct" in name.lower():
         cls = MistralInstruct
     elif "mixtral" in name.lower() and "instruct" in name.lower():
