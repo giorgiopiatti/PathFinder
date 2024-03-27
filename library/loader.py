@@ -58,7 +58,7 @@ def get_model(name, is_api=False, seed=42):
             branch = "main"
             extend_context_length = False
 
-    model_config = AutoConfig.from_pretrained(name)
+    model_config = AutoConfig.from_pretrained(name, trust_remote_code=trust_remote_code)
 
     model = AutoModelForCausalLM.from_pretrained(
         name,
