@@ -195,10 +195,11 @@ class Model:
                 generation_config = GenerationConfig(
                     max_new_tokens=value.max_tokens,
                     pad_token_id=(
-                        model_config.pad_token_id
-                        if model_config.pad_token_id
-                        else model_config.eos_token_id
+                        self.tokenizer.pad_token_id
+                        if self.tokenizer.pad_token_id is not None
+                        else self.tokenizer.eos_token_id
                     ),
+                    eos_token_id=self.tokenizer.eos_token_id,
                     **(
                         {
                             "temperature": value.temperature,
@@ -263,10 +264,11 @@ class Model:
                 generation_config = GenerationConfig(
                     max_new_tokens=value.max_tokens,
                     pad_token_id=(
-                        model_config.pad_token_id
-                        if model_config.pad_token_id
-                        else model_config.eos_token_id
+                        self.tokenizer.pad_token_id
+                        if self.tokenizer.pad_token_id is not None
+                        else self.tokenizer.eos_token_id
                     ),
+                    eos_token_id=self.tokenizer.eos_token_id,
                     **(
                         {
                             "temperature": value.temperature,
@@ -317,17 +319,21 @@ class Model:
                 lm.token_in = len(input_ids[0])
                 lm.token_out = len(output[0]) - len(input_ids[0])
             elif isinstance(value, Select):
-                model_config = AutoConfig.from_pretrained(self.model.name_or_path)
+                model_config = AutoConfig.from_pretrained(
+                    self.model.name_or_path, trust_remote_code=self.trust_remote_code
+                )
+
                 generation_config = GenerationConfig(
+                    pad_token_id=(
+                        self.tokenizer.pad_token_id
+                        if self.tokenizer.pad_token_id is not None
+                        else self.tokenizer.eos_token_id
+                    ),
+                    eos_token_id=self.tokenizer.eos_token_id,
                     max_new_tokens=1,
                     return_dict_in_generate=True,
                     output_scores=True,
                     renormalize_logits=True,
-                    pad_token_id=(
-                        model_config.pad_token_id
-                        if model_config.pad_token_id
-                        else model_config.eos_token_id
-                    ),
                 )
                 model_config.update(generation_config.to_dict())
 
