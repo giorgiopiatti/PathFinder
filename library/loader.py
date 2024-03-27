@@ -75,5 +75,7 @@ def get_model(name, is_api=False, seed=42):
         model = exllama_set_max_input_length(model, max_input_length=4096)
 
     model = torch.compile(model)
-    tokenizer = AutoTokenizer.from_pretrained(name, use_fast=use_fast)
+    tokenizer = AutoTokenizer.from_pretrained(
+        name, use_fast=use_fast, trust_remote_code=trust_remote_code
+    )
     return cls(model=model, tokenizer=tokenizer)
