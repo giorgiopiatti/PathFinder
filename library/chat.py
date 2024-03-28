@@ -31,7 +31,7 @@ class MixtralInstruct(Model):
     ) -> None:
         super().__init__(model, tokenizer, trust_remote_code)
         template_path = os.path.join(
-            os.path.dirname(__file__), "./templates_jinja/mistral-instruct"
+            os.path.dirname(__file__), "./templates_jinja/mistral-instruct.jinja"
         )
         chat_template = open(template_path).read()
         chat_template = chat_template.replace("    ", "").replace("\n", "")
@@ -110,4 +110,9 @@ class MistralInstruct(Model):
         trust_remote_code: bool = False,
     ) -> None:
         super().__init__(model, tokenizer, trust_remote_code)
-        self.template = MIXTRAL_INSTRUCT_TEMPLATE
+        template_path = os.path.join(
+            os.path.dirname(__file__), "./templates_jinja/mistral-instruct.jinja"
+        )
+        chat_template = open(template_path).read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        self.template = chat_template
