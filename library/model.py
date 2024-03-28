@@ -174,7 +174,9 @@ class Model:
                 prompt_render = self.tokenizer.apply_chat_template(
                     tmp_chat,
                     tokenize=False,
-                    add_generation_prompt=lm.chat[-1]["role"] != "assistant",
+                    add_generation_prompt=(
+                        lm.chat[-1]["content"] == ""
+                    ),  # we are already in assistant block, need to check if it is empty
                     chat_template=self.template,
                 )
             else:
