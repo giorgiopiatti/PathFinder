@@ -3,7 +3,7 @@ from auto_gptq import exllama_set_max_input_length
 from optimum.bettertransformer import BetterTransformer
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-from .api import ModelAPI
+from .api import MistralAPI, OpenAIAPI, AnthropicAPI
 from .chat import (
     ChatML,
     DeepSeek,
@@ -16,9 +16,20 @@ from .chat import (
 )
 
 
+def get_api_model(name, seed):
+    if "gpt" in name.lower():
+        return OpenAIAPI(name, seed)
+    elif "mistral" in name.lower():
+        return MistralAPI(name, seed)
+    elif "claude" in name.lower():
+        return AnthropicAPI(name, seed)
+    else:
+        raise ValueError(f"Unknown model name {name}")
+
+
 def get_model(name, is_api=False, seed=42):
     if is_api:
-        return ModelAPI(name, seed)
+        return get_api_model(name, seed)
     trust_remote_code = False
     use_fast = True
     extend_context_length = True

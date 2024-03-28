@@ -9,7 +9,6 @@ import openai
 import pygtrie
 import regex
 import torch
-from openai import OpenAI
 from transformers import (
     AutoConfig,
     GenerationConfig,
@@ -69,8 +68,6 @@ class ModelAPI:
         self.temperature = 0.7
         self.top_p = 1.0
         self.seed = seed
-
-        self.client = OpenAI()
 
     def _current_prompt(self):
         if isinstance(self.chat, list):
@@ -137,13 +134,15 @@ class ModelAPI:
                 lm.chat[-1]["content"] += value
             else:
                 lm.chat += value
-            match = regex.match(
-                regex.escape(value) + r"(.*?)", lm.text_to_consume, regex.DOTALL
-            )
-            if match:
-                lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
-            else:
-                lm.text_to_consume = ""
+            
+            if lm.chat[-1]["role"] == "assistant":
+                match = regex.match(
+                    regex.escape(value) + r"(.*?)", lm.text_to_consume, regex.DOTALL
+                )
+                if match:
+                    lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
+                else:
+                    lm.text_to_consume = ""
         else:
             if isinstance(lm.chat, list):
                 if lm.chat[-1]["role"] != "assistant":
@@ -155,6 +154,7 @@ class ModelAPI:
             if isinstance(value, Gen):
                 lm.temperature = value.temperature
                 lm.top_p = value.top_p
+                lm.max_tokens = value.max_tokens
                 if value.stop_regex is None:
                     r = r"(.*?)"
                 else:
@@ -177,26 +177,17 @@ class ModelAPI:
 
         return lm
 
-    def run_find(self, lm, r, name):
-        @backoff.on_exception(backoff.expo, openai.RateLimitError)
-        def completions_with_backoff(**kwargs):
-            return self.client.chat.completions.create(**kwargs)
+    def request_api(self, chat, tmeperature, top_p, max_tokens):
+        raise NotImplementedError
 
+    def run_find(self, lm, r, name):
         if lm.text_to_consume == "":
             tmp_chat = (
                 lm.chat[:-1]
                 if lm.chat[-1]["role"] == "assistant" and lm.chat[-1]["content"] == ""
                 else lm.chat
             )
-            out = completions_with_backoff(
-                model=self.model_name,
-                messages=tmp_chat,
-                temperature=lm.temperature,
-                top_p=lm.top_p,
-                seed=self.seed,
-            )
-            logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
-            lm.text_to_consume = out.choices[0].message.content
+            lm.text_to_consume = self.request_api(tmp_chat, lm.temperature, lm.top_p, lm.max_tokens)
 
         lm._variables[f"PATHFINDER_ORIGINAL_{name}"] = lm.text_to_consume
         lm.chat[-1]["content"] += lm.text_to_consume
@@ -209,26 +200,13 @@ class ModelAPI:
             raise Exception(f"Regex {r} not found in {lm.text_to_consume}")
 
     def run(self, lm, r, name, is_gen, save_stop_text):
-        @backoff.on_exception(backoff.expo, openai.RateLimitError)
-        def completions_with_backoff(**kwargs):
-            return self.client.chat.completions.create(**kwargs)
-
         if lm.text_to_consume == "":
-
             tmp_chat = (
                 lm.chat[:-1]
                 if lm.chat[-1]["role"] == "assistant" and lm.chat[-1]["content"] == ""
                 else lm.chat
             )
-            out = completions_with_backoff(
-                model=self.model_name,
-                messages=tmp_chat,
-                temperature=lm.temperature,
-                top_p=lm.top_p,
-                seed=self.seed,
-            )
-            logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
-            lm.text_to_consume = out.choices[0].message.content
+            lm.text_to_consume = self.request_api(tmp_chat, lm.temperature, lm.top_p, lm.max_tokens)
             # remove any prefix, if any
             p = lm.chat[-1]["content"].strip()
             if lm.text_to_consume.startswith(p):
@@ -268,3 +246,90 @@ class ModelAPI:
         lm = self.copy()
         lm._variables[key] = value
         return lm
+
+
+class OpenAIAPI(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        from openai import OpenAI
+
+        self.client = OpenAI()
+
+    def request_api(self, chat, tmeperature, top_p, max_tokens):
+        import openai
+
+        @backoff.on_exception(backoff.expo, openai.RateLimitError)
+        def completions_with_backoff(**kwargs):
+            return self.client.chat.completions.create(**kwargs)
+
+        out = completions_with_backoff(
+            model=self.model_name,
+            messages=chat,
+            temperature=tmeperature,
+            top_p=top_p,
+            seed=self.seed,
+            max_tokens=max_tokens,
+        )
+        logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
+        return out.choices[0].message.content
+
+
+import os
+
+
+class MistralAPI(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        from mistralai.client import MistralClient
+
+        api_key = os.environ["MISTRAL_API_KEY"]
+        self.client = MistralClient(api_key=api_key)
+
+    def request_api(self, chat, tmeperature, top_p, max_tokens):
+        from mistralai.exceptions import MistralException
+
+        @backoff.on_exception(backoff.expo, MistralException)
+        def completions_with_backoff(**kwargs):
+            return self.client.chat(**kwargs)
+
+        from mistralai.models.chat_completion import ChatMessage
+
+        if chat[-1]["role"] == "assistant":
+            raise Exception("Assistant should not be the last role in the chat for Mistral.")
+
+        chat_mistral = [
+            ChatMessage(role=entry["role"], content=entry["content"]) for entry in chat
+        ]
+        out = completions_with_backoff(
+            model=self.model_name,
+            messages=chat_mistral,
+            temperature=tmeperature,
+            top_p=top_p,
+            random_seed=self.seed,
+            max_tokens=max_tokens,
+        )
+        return out.choices[0].message.content
+
+
+class AnthropicAPI(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        from anthropic import Anthropic
+
+        self.client = Anthropic()
+
+    def request_api(self, chat, tmeperature, top_p, max_tokens):
+        from anthropic._exceptions import APIStatusError
+
+        @backoff.on_exception(backoff.expo, APIStatusError)
+        def completions_with_backoff(**kwargs):
+            return self.client.messages.create(**kwargs)
+
+        out = completions_with_backoff(
+            model=self.model_name,
+            messages=chat,
+            temperature=tmeperature,
+            top_p=top_p,
+            max_tokens=max_tokens,
+        )
+        return out.content[0].text

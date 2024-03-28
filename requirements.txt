@@ -10,6 +10,7 @@ hf_transfer # fast transfer of models
 backoff
 openai
 mistralai
+anthropic
 # path-finder specific
 pygtrie
 numpy
