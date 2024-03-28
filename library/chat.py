@@ -14,7 +14,12 @@ class LlamaChat(Model):
         trust_remote_code: bool = False,
     ) -> None:
         super().__init__(model, tokenizer, trust_remote_code)
-        self.template = LLAMA_CHAT_TEMPLATE
+        template_path = os.path.join(
+            os.path.dirname(__file__), "./templates_jinja/mistral-instruct"
+        )
+        chat_template = open(template_path).read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        self.template = chat_template
 
 
 class MixtralInstruct(Model):
@@ -25,7 +30,12 @@ class MixtralInstruct(Model):
         trust_remote_code: bool = False,
     ) -> None:
         super().__init__(model, tokenizer, trust_remote_code)
-        self.template = MIXTRAL_INSTRUCT_TEMPLATE
+        template_path = os.path.join(
+            os.path.dirname(__file__), "./templates_jinja/mistral-instruct"
+        )
+        chat_template = open(template_path).read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        self.template = chat_template
 
 
 class Vicuna(Model):

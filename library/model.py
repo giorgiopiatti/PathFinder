@@ -182,7 +182,7 @@ class Model:
 
             # Tokenize
             input_ids = self.tokenizer(
-                prompt_render, return_tensors="pt", add_special_tokens=False
+                prompt_render, return_tensors="pt", add_special_tokens=True
             ).input_ids.to(self.model.device)
 
             # Run specific generation
@@ -192,14 +192,16 @@ class Model:
                     trust_remote_code=self.trust_remote_code,
                 )
 
+                pad_token_id = model_config.pad_token_id
+                eos_token_id = model_config.eos_token_id
+                if eos_token_id is None:
+                    eos_token_id = self.tokenizer.eos_token_id
+                if pad_token_id is None:
+                    pad_token_id = eos_token_id
                 generation_config = GenerationConfig(
+                    pad_token_id=pad_token_id,
+                    eos_token_id=eos_token_id,
                     max_new_tokens=value.max_tokens,
-                    pad_token_id=(
-                        self.tokenizer.pad_token_id
-                        if self.tokenizer.pad_token_id is not None
-                        else self.tokenizer.eos_token_id
-                    ),
-                    eos_token_id=self.tokenizer.eos_token_id,
                     **(
                         {
                             "temperature": value.temperature,
@@ -261,14 +263,17 @@ class Model:
                     trust_remote_code=self.trust_remote_code,
                 )
 
+                pad_token_id = model_config.pad_token_id
+                eos_token_id = model_config.eos_token_id
+                if eos_token_id is None:
+                    eos_token_id = self.tokenizer.eos_token_id
+                if pad_token_id is None:
+                    pad_token_id = eos_token_id
+
                 generation_config = GenerationConfig(
+                    pad_token_id=pad_token_id,
+                    eos_token_id=eos_token_id,
                     max_new_tokens=value.max_tokens,
-                    pad_token_id=(
-                        self.tokenizer.pad_token_id
-                        if self.tokenizer.pad_token_id is not None
-                        else self.tokenizer.eos_token_id
-                    ),
-                    eos_token_id=self.tokenizer.eos_token_id,
                     **(
                         {
                             "temperature": value.temperature,
@@ -323,13 +328,16 @@ class Model:
                     self.model.name_or_path, trust_remote_code=self.trust_remote_code
                 )
 
+                pad_token_id = model_config.pad_token_id
+                eos_token_id = model_config.eos_token_id
+                if eos_token_id is None:
+                    eos_token_id = self.tokenizer.eos_token_id
+                if pad_token_id is None:
+                    pad_token_id = eos_token_id
+
                 generation_config = GenerationConfig(
-                    pad_token_id=(
-                        self.tokenizer.pad_token_id
-                        if self.tokenizer.pad_token_id is not None
-                        else self.tokenizer.eos_token_id
-                    ),
-                    eos_token_id=self.tokenizer.eos_token_id,
+                    pad_token_id=pad_token_id,
+                    eos_token_id=eos_token_id,
                     max_new_tokens=1,
                     return_dict_in_generate=True,
                     output_scores=True,
