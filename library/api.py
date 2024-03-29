@@ -284,10 +284,40 @@ import os
 class MistralAPI(ModelAPI):
     def __init__(self, model_name, seed):
         super().__init__(model_name, seed)
+        from httpx import Client as HTTPClient
+        from httpx import HTTPTransport
         from mistralai.client import MistralClient
 
         api_key = os.environ["MISTRAL_API_KEY"]
         self.client = MistralClient(api_key=api_key)
+
+        http_proxies = [
+            proxy
+            for varname, proxy in os.environ.items()
+            if varname.lower() == "http_proxy"
+        ]
+        https_proxies = [
+            proxy
+            for varname, proxy in os.environ.items()
+            if varname.lower() == "https_proxy"
+        ]
+        all_proxies = [
+            proxy
+            for varname, proxy in os.environ.items()
+            if varname.lower() == "all_proxy"
+        ]
+        proxies = {
+            "http://": http_proxies[0] if len(http_proxies) > 0 else None,
+            "https://": https_proxies[0] if len(https_proxies) > 0 else None,
+            "all://": all_proxies[0] if len(all_proxies) > 0 else None,
+        }
+
+        self.client._client = HTTPClient(
+            proxies=proxies,
+            follow_redirects=True,
+            timeout=self.client._timeout,
+            transport=HTTPTransport(retries=self.client._max_retries),
+        )
 
     def request_api(self, chat, tmeperature, top_p, max_tokens):
         from mistralai.exceptions import MistralException
