@@ -56,7 +56,7 @@ class ModelAPI:
     token_in = 0
     token_out = 0
 
-    def __init__(self, model_name, seed) -> None:
+    def __init__(self, model_name, seed, api_assistant=True) -> None:
         self.model_name = model_name
         self.model = DummyModel(DummyConfig(model_name))
 
@@ -67,7 +67,11 @@ class ModelAPI:
         self.text_to_consume = ""
         self.temperature = 0.7
         self.top_p = 1.0
+        self.max_tokens = 1000
         self.seed = seed
+
+        self.prefix_text = ""
+        self.api_assistant = api_assistant
 
     def _current_prompt(self):
         if isinstance(self.chat, list):
@@ -128,6 +132,8 @@ class ModelAPI:
                     "content": "",
                 }
             )
+            if Model.open_block.role == "assistant":
+                lm.prefix_text = ""
 
         if isinstance(value, str):
             if isinstance(lm.chat, list):
@@ -136,11 +142,15 @@ class ModelAPI:
                 lm.chat += value
 
             if lm.chat[-1]["role"] == "assistant":
+                lm.prefix_text += value
                 match = regex.match(
-                    regex.escape(value) + r"(.*?)", lm.text_to_consume, regex.DOTALL
+                    r"(.*?)" + regex.escape(value) + r"(.*?)",
+                    lm.text_to_consume,
+                    regex.DOTALL,
                 )
                 if match:
                     lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
+                    lm.prefix_text = ""
                 else:
                     lm.text_to_consume = ""
         else:
@@ -187,9 +197,25 @@ class ModelAPI:
                 if lm.chat[-1]["role"] == "assistant" and lm.chat[-1]["content"] == ""
                 else lm.chat
             )
-            lm.text_to_consume = self.request_api(
-                tmp_chat, lm.temperature, lm.top_p, lm.max_tokens
-            )
+            if self.api_assistant:
+                lm.text_to_consume = self.request_api(
+                    tmp_chat, lm.temperature, lm.top_p, lm.max_tokens
+                )
+            else:
+                tmp_chat = (
+                    tmp_chat[:-1] if tmp_chat[-1]["role"] == "assistant" else tmp_chat
+                )
+                lm.text_to_consume = self.request_api(
+                    tmp_chat, lm.temperature, lm.top_p, lm.max_tokens
+                )
+                match = regex.match(
+                    regex.escape(lm.prefix_text) + r"(.*?)",
+                    lm.text_to_consume,
+                    regex.DOTALL,
+                )
+                if match:
+                    lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
+                    lm.prefix_text = ""
 
         lm._variables[f"PATHFINDER_ORIGINAL_{name}"] = lm.text_to_consume
         lm.chat[-1]["content"] += lm.text_to_consume
@@ -208,9 +234,26 @@ class ModelAPI:
                 if lm.chat[-1]["role"] == "assistant" and lm.chat[-1]["content"] == ""
                 else lm.chat
             )
-            lm.text_to_consume = self.request_api(
-                tmp_chat, lm.temperature, lm.top_p, lm.max_tokens
-            )
+            if self.api_assistant:
+                lm.text_to_consume = self.request_api(
+                    tmp_chat, lm.temperature, lm.top_p, lm.max_tokens
+                )
+            else:
+                tmp_chat = (
+                    tmp_chat[:-1] if tmp_chat[-1]["role"] == "assistant" else tmp_chat
+                )
+                lm.text_to_consume = self.request_api(
+                    tmp_chat, lm.temperature, lm.top_p, lm.max_tokens
+                )
+                match = regex.match(
+                    regex.escape(lm.prefix_text) + r"(.*?)",
+                    lm.text_to_consume,
+                    regex.DOTALL,
+                )
+                if match:
+                    lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
+                    lm.prefix_text = ""
+
             # remove any prefix, if any
             p = lm.chat[-1]["content"].strip()
             if lm.text_to_consume.startswith(p):
@@ -283,7 +326,7 @@ import os
 
 class MistralAPI(ModelAPI):
     def __init__(self, model_name, seed):
-        super().__init__(model_name, seed)
+        super().__init__(model_name, seed, api_assistant=False)
         from httpx import Client as HTTPClient
         from httpx import HTTPTransport
         from mistralai.client import MistralClient
@@ -349,7 +392,7 @@ class MistralAPI(ModelAPI):
 
 class AnthropicAPI(ModelAPI):
     def __init__(self, model_name, seed):
-        super().__init__(model_name, seed)
+        super().__init__(model_name, seed, api_assistant=False)
         from anthropic import Anthropic
 
         self.client = Anthropic()
