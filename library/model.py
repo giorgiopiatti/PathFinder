@@ -350,7 +350,7 @@ class Model:
                 options_text = [
                     self.tokenizer.decode(
                         self.tokenizer.encode(
-                            prompt_render + option, add_special_tokens=False
+                            prompt_render + option, add_special_tokens=True
                         ),
                         skip_special_tokens=False,
                     )
