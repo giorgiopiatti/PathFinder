@@ -134,7 +134,7 @@ class ModelAPI:
                 lm.chat[-1]["content"] += value
             else:
                 lm.chat += value
-            
+
             if lm.chat[-1]["role"] == "assistant":
                 match = regex.match(
                     regex.escape(value) + r"(.*?)", lm.text_to_consume, regex.DOTALL
@@ -187,7 +187,9 @@ class ModelAPI:
                 if lm.chat[-1]["role"] == "assistant" and lm.chat[-1]["content"] == ""
                 else lm.chat
             )
-            lm.text_to_consume = self.request_api(tmp_chat, lm.temperature, lm.top_p, lm.max_tokens)
+            lm.text_to_consume = self.request_api(
+                tmp_chat, lm.temperature, lm.top_p, lm.max_tokens
+            )
 
         lm._variables[f"PATHFINDER_ORIGINAL_{name}"] = lm.text_to_consume
         lm.chat[-1]["content"] += lm.text_to_consume
@@ -206,7 +208,9 @@ class ModelAPI:
                 if lm.chat[-1]["role"] == "assistant" and lm.chat[-1]["content"] == ""
                 else lm.chat
             )
-            lm.text_to_consume = self.request_api(tmp_chat, lm.temperature, lm.top_p, lm.max_tokens)
+            lm.text_to_consume = self.request_api(
+                tmp_chat, lm.temperature, lm.top_p, lm.max_tokens
+            )
             # remove any prefix, if any
             p = lm.chat[-1]["content"].strip()
             if lm.text_to_consume.startswith(p):
@@ -295,7 +299,9 @@ class MistralAPI(ModelAPI):
         from mistralai.models.chat_completion import ChatMessage
 
         if chat[-1]["role"] == "assistant":
-            raise Exception("Assistant should not be the last role in the chat for Mistral.")
+            raise Exception(
+                "Assistant should not be the last role in the chat for Mistral."
+            )
 
         chat_mistral = [
             ChatMessage(role=entry["role"], content=entry["content"]) for entry in chat
@@ -324,6 +330,11 @@ class AnthropicAPI(ModelAPI):
         @backoff.on_exception(backoff.expo, APIStatusError)
         def completions_with_backoff(**kwargs):
             return self.client.messages.create(**kwargs)
+
+        if chat[-1]["role"] == "assistant":
+            raise Exception(
+                "Assistant should not be the last role in the chat for Anthropic."
+            )
 
         out = completions_with_backoff(
             model=self.model_name,
