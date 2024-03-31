@@ -375,7 +375,9 @@ class Model:
                         inputs=torch.tensor([prefix], device=self.model.device),
                         generation_config=generation_config,
                     )
-                    logprobs_result = gen_obj.scores[0][0].cpu().numpy()
+                    logprobs_result = (
+                        gen_obj.scores[0][0].to(dtype=torch.float32).cpu().numpy()
+                    )
 
                     top_logprobs = np.argsort(-logprobs_result)
 
