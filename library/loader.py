@@ -103,5 +103,4 @@ def get_model(name, is_api=False, seed=42):
             trust_remote_code=trust_remote_code,
             template=cls().template,
         )
-  
     return backend

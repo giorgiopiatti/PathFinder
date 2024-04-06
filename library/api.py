@@ -25,23 +25,10 @@ from transformers import (
 from ._find import Find
 from ._gen import Gen
 from ._select import Select
+from .backend import PathFinder
 from .model import Model
 from .templates import LLAMA_CHAT_TEMPLATE
 from .trie import MarisaTrie, Trie
-
-
-class DummyConfig:
-    name_or_path: str
-
-    def __init__(self, name_or_path: str) -> None:
-        self.name_or_path = name_or_path
-
-
-class DummyModel:
-    config: DummyConfig
-
-    def __init__(self, config: DummyConfig) -> None:
-        self.config = config
 
 
 def can_be_int(s):
@@ -52,20 +39,14 @@ def can_be_int(s):
         return False  # Return False if a ValueError is raised
 
 
-class ModelAPI:
+class ModelAPI(PathFinder):
     token_in = 0
     token_out = 0
 
     def __init__(self, model_name, seed, api_assistant=True) -> None:
-        self.model_name = model_name
-        self.model = DummyModel(DummyConfig(model_name))
+        super().__init__(model_name)
 
-        self._variables = {}
-        self._variables_log_probs = {}
-
-        self.chat = []
-        self.text_to_consume = ""
-        self.temperature = 0.7
+        self.temperature = 0.0
         self.top_p = 1.0
         self.max_tokens = 1000
         self.seed = seed
@@ -80,112 +61,43 @@ class ModelAPI:
             prompt_render = self.chat
         return prompt_render
 
-    def _format_chat_entry_as_html(self, entry):
-        # Bold the role tag
-        role_tag = f'<strong>{entry["role"].upper()}</strong>'
-        return f'<div>{role_tag}: {entry["content"]}</div>'
-
-    def html(self):
-        if isinstance(self.chat, list):
-            # Process each chat entry and format it as HTML
-            html_entries = [
-                self._format_chat_entry_as_html(entry) for entry in self.chat
-            ]
-            prompt_render = "".join(html_entries)
+    def _consume_assistant_text(self, value):
+        self.prefix_text += value
+        match = regex.match(
+            r"(.*?)" + regex.escape(value) + r"(.*?)",
+            self.text_to_consume,
+            regex.DOTALL,
+        )
+        if match:
+            self.text_to_consume = self.text_to_consume[len(match.group()) :]
+            self.prefix_text = ""
         else:
-            # Format a single chat entry as HTML
-            prompt_render = self._format_chat_entry_as_html(self.chat)
-        return prompt_render
+            self.text_to_consume = ""
 
-    def __str__(self) -> str:
-        pass
-
-    def copy(self):
-        """Create a shallow copy of the model object."""
-
-        # start with a shallow copy
-        new_lm = copy.copy(self)
-
-        # then copy a few things we need deeper copies of
-        new_lm._variables = self._variables.copy()
-        new_lm._variables_log_probs = self._variables_log_probs.copy()
-
-        if isinstance(self.chat, list):
-            new_lm.chat = self.chat.copy()
+    def _get_gen(self, value: Gen):
+        self.temperature = value.temperature
+        self.top_p = value.top_p
+        self.max_tokens = value.max_tokens
+        if value.stop_regex is None:
+            r = r"(.*?)"
         else:
-            new_lm.chat = self.chat
+            r = rf"(.*?)({value.stop_regex})"
 
-        return new_lm
+        return self.run(self, r, value.name, True, value.save_stop_text)
 
-    def __add__(self, value):
-        # we hav string, gen, select
-        lm = self.copy()
+    def _get_find(self, value: Find):
+        self.temperature = value.temperature
+        self.top_p = value.top_p
+        return self.run_find(self, value.regex, value.name)
 
-        if len(lm.chat) == 0 and Model.empty_block and Model.open_block is None:
-            # We are not in a chat block, so we simply add the string
-            lm.chat = ""
-        elif Model.open_block is not None and Model.open_block.init_tag:
-            Model.open_block.init_tag = False
-            lm.chat.append(
-                {
-                    "role": Model.open_block.role,
-                    "content": "",
-                }
-            )
-            if Model.open_block.role == "assistant":
-                lm.prefix_text = ""
-
-        if isinstance(value, str):
-            if isinstance(lm.chat, list):
-                lm.chat[-1]["content"] += value
-            else:
-                lm.chat += value
-
-            if lm.chat[-1]["role"] == "assistant":
-                lm.prefix_text += value
-                match = regex.match(
-                    r"(.*?)" + regex.escape(value) + r"(.*?)",
-                    lm.text_to_consume,
-                    regex.DOTALL,
-                )
-                if match:
-                    lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
-                    lm.prefix_text = ""
-                else:
-                    lm.text_to_consume = ""
+    def _get_select(self, value: Select):
+        if all(can_be_int(x) for x in value.options):
+            r = r"(\d+)"
         else:
-            if isinstance(lm.chat, list):
-                if lm.chat[-1]["role"] != "assistant":
-                    raise Exception(
-                        f"{value} can be used only in assistant block, not in"
-                        f" {lm.chat[-1]['role']} block!"
-                    )
-            # any string regex then stop token
-            if isinstance(value, Gen):
-                lm.temperature = value.temperature
-                lm.top_p = value.top_p
-                lm.max_tokens = value.max_tokens
-                if value.stop_regex is None:
-                    r = r"(.*?)"
-                else:
-                    r = rf"(.*?)({value.stop_regex})"
-
-                self.run(lm, r, value.name, True, value.save_stop_text)
-            elif isinstance(value, Find):
-                lm.temperature = value.temperature
-                lm.top_p = value.top_p
-                self.run_find(lm, value.regex, value.name)
-            elif isinstance(value, Select):
-                # detect if value.options is a list of string of numbers, if so use a digit regex
-                if all(can_be_int(x) for x in value.options):
-                    r = r"(\d+)"
-                else:
-                    r = r"("
-                    r += r"|".join([regex.escape(o) for o in value.options])
-                    r += r")"
-                self.run(lm, r, value.name, False, False)
-
-        return lm
+            r = r"("
+            r += r"|".join([regex.escape(o) for o in value.options])
+            r += r")"
+        return self.run(self, r, value.name, False, False)
 
     def request_api(self, chat, tmeperature, top_p, max_tokens):
         raise NotImplementedError
@@ -217,13 +129,12 @@ class ModelAPI:
                     lm.text_to_consume = lm.text_to_consume[len(match.group()) :]
                     lm.prefix_text = ""
 
-        lm._variables[f"PATHFINDER_ORIGINAL_{name}"] = lm.text_to_consume
-        lm.chat[-1]["content"] += lm.text_to_consume
-
+        original_res = lm.text_to_consume
         match = regex.search(r, lm.text_to_consume)
         if match:
             res = match.group(0)
             lm._variables[name] = res
+            return res, original_res
         else:
             raise Exception(f"Regex {r} not found in {lm.text_to_consume}")
 
@@ -265,35 +176,22 @@ class ModelAPI:
                 # complete match
                 match_res = match.group()
                 if save_stop_text:
-                    lm.chat[-1]["content"] += match.group()
-                    lm._variables[name] = match.group()
+                    res = match.group()
                     lm.text_to_consume = lm.text_to_consume[len(match_res) :]
                 else:
-                    lm.chat[-1]["content"] += match.group(1)
-                    lm._variables[name] = match.group(1)
+                    res = match.group(1)
                     lm.text_to_consume = lm.text_to_consume[len(match.group(1)) :]
             else:
                 match = regex.findall(r, lm.text_to_consume, regex.DOTALL)[0]
                 lm.text_to_consume = ""  # reset since this was a search of the response
-                lm._variables[name] = match
-                lm.chat[-1]["content"] += match
+                res = match
         elif is_gen:
             # not stop token
-            lm.chat[-1]["content"] += lm.text_to_consume
-            lm._variables[name] = lm.text_to_consume
-            lm.text_to_consume = ""
+            res = lm.text_to_consume
+            lm.text_to_consume = ""   
         else:
             raise Exception(f"Cant find {r} in {lm.text_to_consume}")
-
-    def __getitem__(self, key):
-        if key in self._variables:
-            return self._variables[key]
-
-    def set(self, key, value):
-        lm = self.copy()
-        lm._variables[key] = value
-        return lm
-
+        return res
 
 class OpenAIAPI(ModelAPI):
     def __init__(self, model_name, seed):

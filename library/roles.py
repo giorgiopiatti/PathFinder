@@ -1,4 +1,4 @@
-from .model import Model
+from .backend import PathFinder
 
 
 class ContextBlock:
@@ -10,13 +10,13 @@ class ContextBlock:
         self.init_tag = True
 
     def __enter__(self):
-        if Model.open_block is not None:
+        if PathFinder.open_block is not None:
             raise Exception("Cannot open a block inside another block")
-        Model.open_block = self
-        Model.empty_block = True
+        PathFinder.open_block = self
+        PathFinder.empty_block = True
 
     def __exit__(self, exc_type, exc_value, traceback):
-        Model.open_block = None
+        PathFinder.open_block = None
 
 
 def system():
