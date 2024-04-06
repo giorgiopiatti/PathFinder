@@ -76,9 +76,10 @@ class Model:
         model: PreTrainedModel,
         tokenizer: PreTrainedTokenizer,
         trust_remote_code: bool = False,
+        template: Any = None,
     ) -> None:
         self.model = model
-        self.template = None
+        self.template = template
         self.tokenizer = tokenizer
         # these are the state variables stored with the model
         self._variables = {}

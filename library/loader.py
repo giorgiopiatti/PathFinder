@@ -3,7 +3,7 @@ from auto_gptq import exllama_set_max_input_length
 from optimum.bettertransformer import BetterTransformer
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-from .api import MistralAPI, OpenAIAPI, AnthropicAPI
+from .api import AnthropicAPI, MistralAPI, OpenAIAPI
 from .chat import (
     ChatML,
     DeepSeek,
@@ -14,6 +14,7 @@ from .chat import (
     Model,
     Vicuna,
 )
+from .model import Model
 
 
 def get_api_model(name, seed):
@@ -69,24 +70,38 @@ def get_model(name, is_api=False, seed=42):
             branch = "main"
             extend_context_length = False
 
-    model_config = AutoConfig.from_pretrained(name, trust_remote_code=trust_remote_code)
-
-    model = AutoModelForCausalLM.from_pretrained(
-        name,
-        device_map="auto",
-        trust_remote_code=trust_remote_code,
-        revision=branch,
-        # attn_implementation=(
-        #     "flash_attention_2" if not "gptq" in name.lower() else None
-        # ),
-        torch_dtype=model_config.torch_dtype if not "gptq" in name.lower() else None,
-    )
-
-    if "gptq" in name.lower() and extend_context_length:
-        model = exllama_set_max_input_length(model, max_input_length=4096)
-
-    model = torch.compile(model)
     tokenizer = AutoTokenizer.from_pretrained(
         name, use_fast=use_fast, trust_remote_code=trust_remote_code
     )
-    return cls(model=model, tokenizer=tokenizer, trust_remote_code=trust_remote_code)
+
+    backend_name = "torch"
+    if backend_name == "torch":
+        model_config = AutoConfig.from_pretrained(
+            name, trust_remote_code=trust_remote_code
+        )
+
+        model = AutoModelForCausalLM.from_pretrained(
+            name,
+            device_map="auto",
+            trust_remote_code=trust_remote_code,
+            revision=branch,
+            # attn_implementation=(
+            #     "flash_attention_2" if not "gptq" in name.lower() else None
+            # ),
+            torch_dtype=(
+                model_config.torch_dtype if not "gptq" in name.lower() else None
+            ),
+        )
+
+        if "gptq" in name.lower() and extend_context_length:
+            model = exllama_set_max_input_length(model, max_input_length=4096)
+
+        model = torch.compile(model)
+        backend = Model(
+            model=model,
+            tokenizer=tokenizer,
+            trust_remote_code=trust_remote_code,
+            template=cls().template,
+        )
+  
+    return backend
