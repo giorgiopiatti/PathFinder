@@ -94,9 +94,6 @@ class Model(PathFinder):
             prompt_render = self.chat
         return prompt_render
 
-
-
-
     def _format_prompt(self):
         if isinstance(self.chat, list):
             tmp_chat = (
@@ -121,14 +118,14 @@ class Model(PathFinder):
             prompt_render, return_tensors="pt", add_special_tokens=True
         ).input_ids.to(self.model.device)
         return prompt_render, input_ids
-    
+
     def _get_gen(self, value: Gen):
         prompt_render, input_ids = self._format_prompt()
 
         model_config = AutoConfig.from_pretrained(
-                self.model.name_or_path,
-                trust_remote_code=self.trust_remote_code,
-            )
+            self.model.name_or_path,
+            trust_remote_code=self.trust_remote_code,
+        )
 
         pad_token_id = model_config.pad_token_id
         eos_token_id = model_config.eos_token_id
@@ -183,9 +180,7 @@ class Model(PathFinder):
             if isinstance(value.stop_regex, str):
                 stop_regex = [regex.compile(value.stop_regex)]
             else:
-                stop_regex = [
-                    regex.compile(pattern) for pattern in value.stop_regex
-                ]
+                stop_regex = [regex.compile(pattern) for pattern in value.stop_regex]
 
             for p in stop_regex:
                 if p.search(res):
@@ -195,7 +190,7 @@ class Model(PathFinder):
         self.token_out = len(output[0]) - len(input_ids[0])
 
         return res
-    
+
     def _get_find(self, value: Find):
         prompt_render, input_ids = self._format_prompt()
         model_config = AutoConfig.from_pretrained(
@@ -262,13 +257,13 @@ class Model(PathFinder):
             raise Exception(f"Regex {value.regex} not found in {original_res}")
         self.token_in = len(input_ids[0])
         self.token_out = len(output[0]) - len(input_ids[0])
-        return res
-    
+        return res, original_res
+
     def _get_select(self, value: Select):
         prompt_render, input_ids = self._format_prompt()
         model_config = AutoConfig.from_pretrained(
-                self.model.name_or_path, trust_remote_code=self.trust_remote_code
-            )
+            self.model.name_or_path, trust_remote_code=self.trust_remote_code
+        )
         pad_token_id = model_config.pad_token_id
         eos_token_id = model_config.eos_token_id
         if eos_token_id is None:
@@ -288,9 +283,7 @@ class Model(PathFinder):
 
         options_text = [
             self.tokenizer.decode(
-                self.tokenizer.encode(
-                    prompt_render + option, add_special_tokens=True
-                ),
+                self.tokenizer.encode(prompt_render + option, add_special_tokens=True),
                 skip_special_tokens=False,
             )
             for option in value.options
@@ -314,9 +307,7 @@ class Model(PathFinder):
                 inputs=torch.tensor([prefix], device=self.model.device),
                 generation_config=generation_config,
             )
-            logprobs_result = (
-                gen_obj.scores[0][0].to(dtype=torch.float32).cpu().numpy()
-            )
+            logprobs_result = gen_obj.scores[0][0].to(dtype=torch.float32).cpu().numpy()
 
             top_logprobs = np.argsort(-logprobs_result)
 
@@ -327,9 +318,7 @@ class Model(PathFinder):
                     current_prefix, skip_special_tokens=False
                 )
                 try:
-                    extension_options = token_map.items(
-                        prefix=current_prefix_decoded
-                    )
+                    extension_options = token_map.items(prefix=current_prefix_decoded)
                     partial_match = True
                 except KeyError:
                     partial_match = False
@@ -352,9 +341,7 @@ class Model(PathFinder):
                         need_more_tokens = False
                         break
 
-        res = self.tokenizer.decode(
-            prefix[prompt_length:], skip_special_tokens=False
-        )
+        res = self.tokenizer.decode(prefix[prompt_length:], skip_special_tokens=False)
         self.token_in = prompt_length
         self.token_out = len(prefix) - prompt_length
         if res.endswith(self.tokenizer.eos_token):
