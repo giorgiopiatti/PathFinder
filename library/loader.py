@@ -6,6 +6,7 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from .api import AnthropicAPI, MistralAPI, OpenAIAPI
 from .chat import (
     ChatML,
+    Cohere,
     DeepSeek,
     LlamaChat,
     MetaMath,
@@ -55,6 +56,8 @@ def get_model(name, is_api=False, seed=42):
         cls = ChatML
     elif "deepseek" in name.lower():
         cls = DeepSeek
+    elif "command" in name.lower():
+        cls = Cohere
     else:
         raise ValueError(f"Unknown model name {name}")
 

@@ -74,3 +74,13 @@ class MistralInstruct:
         chat_template = open(template_path).read()
         chat_template = chat_template.replace("    ", "").replace("\n", "")
         self.template = chat_template
+
+
+class Cohere:
+    def __init__(self):
+        template_path = os.path.join(
+            os.path.dirname(__file__), "./templates_jinja/cohere.jinja"
+        )
+        chat_template = open(template_path).read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        self.template = chat_template
