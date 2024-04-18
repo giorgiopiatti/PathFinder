@@ -1,6 +1,4 @@
 import torch
-from auto_gptq import exllama_set_max_input_length
-from optimum.bettertransformer import BetterTransformer
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .api import AnthropicAPI, MistralAPI, OpenAIAPI
@@ -8,6 +6,7 @@ from .chat import (
     ChatML,
     Cohere,
     DeepSeek,
+    Llama3Chat,
     LlamaChat,
     MetaMath,
     MistralInstruct,
@@ -29,7 +28,7 @@ def get_api_model(name, seed):
         raise ValueError(f"Unknown model name {name}")
 
 
-def get_model(name, is_api=False, seed=42):
+def get_model(name, is_api=False, seed=42, backend_name="transformers"):
     if is_api:
         return get_api_model(name, seed)
     trust_remote_code = False
@@ -37,6 +36,8 @@ def get_model(name, is_api=False, seed=42):
     extend_context_length = True
     if "metamath" in name.lower():
         cls = MetaMath
+    elif "llama-3" in name.lower():
+        cls = Llama3Chat
     elif "llama" in name.lower():
         cls = LlamaChat
     elif "smaug" in name.lower():
@@ -79,8 +80,7 @@ def get_model(name, is_api=False, seed=42):
         name, use_fast=use_fast, trust_remote_code=trust_remote_code
     )
 
-    backend_name = "torch"
-    if backend_name == "torch":
+    if backend_name == "transformers":
         model_config = AutoConfig.from_pretrained(
             name, trust_remote_code=trust_remote_code
         )
@@ -99,6 +99,8 @@ def get_model(name, is_api=False, seed=42):
         )
 
         if "gptq" in name.lower() and extend_context_length:
+            from auto_gptq import exllama_set_max_input_length
+
             model = exllama_set_max_input_length(model, max_input_length=4096)
 
         model = torch.compile(model)
@@ -108,4 +110,9 @@ def get_model(name, is_api=False, seed=42):
             trust_remote_code=trust_remote_code,
             template=cls().template,
         )
+    elif backend_name == "vllm":
+        from .vllm import ModelVLLMBackend
+
+        backend = ModelVLLMBackend(name, tokenizer, trust_remote_code, cls().template)
+
     return backend

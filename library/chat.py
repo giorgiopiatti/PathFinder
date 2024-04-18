@@ -16,6 +16,16 @@ class LlamaChat:
         self.template = chat_template
 
 
+class Llama3Chat:
+    def __init__(self):
+        template_path = os.path.join(
+            os.path.dirname(__file__), "./templates_jinja/llama-3-chat.jinja"
+        )
+        chat_template = open(template_path).read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        self.template = chat_template
+
+
 class MixtralInstruct:
     def __init__(self):
         template_path = os.path.join(
