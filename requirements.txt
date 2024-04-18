@@ -1,12 +1,13 @@
 # HF fast inference
+accelerate
 transformers
 optimum
 einops
-git+https://github.com/AutoGPTQ/AutoGPTQ.git # need to install from source, to compile the cpp code
-autoawq
+# git+https://github.com/AutoGPTQ/AutoGPTQ.git # need to install from source, to compile the cpp code
+# autoawq
 tiktoken # for databricks models
 hf_transfer # fast transfer of models
-vllm
+# vllm
 # APIs
 backoff
 openai
