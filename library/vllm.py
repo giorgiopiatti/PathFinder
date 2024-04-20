@@ -42,6 +42,7 @@ class ModelVLLMBackend(PathFinder):
         tokenizer: PreTrainedTokenizer,
         trust_remote_code: bool = False,
         template: str = None,
+        seed: int = 42,
     ) -> None:
         super().__init__(model_name)
         num_gpus = torch.cuda.device_count()
@@ -49,7 +50,8 @@ class ModelVLLMBackend(PathFinder):
             model_name,
             gpu_memory_utilization=0.9,
             tensor_parallel_size=num_gpus,
-        ) 
+            seed=seed,
+        )
         self.template = template
         self.tokenizer = tokenizer
         self.trust_remote_code = trust_remote_code

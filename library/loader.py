@@ -117,6 +117,8 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
     elif backend_name == "vllm":
         from .vllm import ModelVLLMBackend
 
-        backend = ModelVLLMBackend(name, tokenizer, trust_remote_code, cls().template)
+        backend = ModelVLLMBackend(
+            name, tokenizer, trust_remote_code, cls().template, seed
+        )
 
     return backend
