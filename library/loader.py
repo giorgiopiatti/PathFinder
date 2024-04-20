@@ -76,6 +76,10 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
             branch = "main"
             extend_context_length = False
 
+        if not "thebloke" in name.lower():
+            branch = "main"
+            extend_context_length = False
+
     tokenizer = AutoTokenizer.from_pretrained(
         name, use_fast=use_fast, trust_remote_code=trust_remote_code
     )
