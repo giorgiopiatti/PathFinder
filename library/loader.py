@@ -12,6 +12,7 @@ from .chat import (
     MistralInstruct,
     MixtralInstruct,
     Model,
+    Phi3,
     Vicuna,
 )
 from .model import Model
@@ -40,6 +41,9 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
         cls = Llama3Chat
     elif "llama" in name.lower():
         cls = LlamaChat
+    elif "phi-3" in name.lower():
+        cls = Phi3
+        trust_remote_code = True
     elif "smaug" in name.lower():
         cls = LlamaChat
     elif "vicuna" in name.lower():

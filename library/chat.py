@@ -56,6 +56,16 @@ class ChatML:
         self.template = chat_template
 
 
+class Phi3:
+    def __init__(self):
+        template_path = os.path.join(
+            os.path.dirname(__file__), "./templates_jinja/phi-3.jinja"
+        )
+        chat_template = open(template_path).read()
+        chat_template = chat_template.replace("    ", "").replace("\n", "")
+        self.template = chat_template
+
+
 class DeepSeek:
     def __init__(self):
         template_path = os.path.join(
