@@ -122,18 +122,20 @@ class Model(PathFinder):
     def _get_gen(self, value: Gen):
         prompt_render, input_ids = self._format_prompt()
 
-        model_config = AutoConfig.from_pretrained(
+        generation_config = GenerationConfig.from_pretrained(
             self.model.name_or_path,
             trust_remote_code=self.trust_remote_code,
         )
 
-        pad_token_id = model_config.pad_token_id
-        eos_token_id = model_config.eos_token_id
+        pad_token_id = generation_config.pad_token_id
+        eos_token_id = generation_config.eos_token_id
         if eos_token_id is None:
             eos_token_id = self.tokenizer.eos_token_id
         if pad_token_id is None:
-            pad_token_id = eos_token_id
-        generation_config = GenerationConfig(
+            pad_token_id = (
+                eos_token_id[0] if isinstance(eos_token_id, list) else eos_token_id
+            )
+        generation_config.update(
             pad_token_id=pad_token_id,
             eos_token_id=eos_token_id,
             max_new_tokens=value.max_tokens,
