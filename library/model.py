@@ -175,9 +175,17 @@ class Model(PathFinder):
         res = self.tokenizer.decode(
             output[0][input_ids.shape[1] :], skip_special_tokens=False
         )
-        if res.endswith(self.tokenizer.eos_token):
-            res = res[: -len(self.tokenizer.eos_token)]
-        # remove end pattern if it exists and save_stop_text is True
+        # use generation_config.eos_token_id, can be a list or a single value, detokenize and remove eos token
+        if isinstance(eos_token_id, list):
+            for eos_id in eos_token_id:
+                eos = self.tokenizer.decode(eos_id)
+                if res.endswith(eos):
+                    res = res[: -len(eos)]
+                    break
+        else:
+            eos = self.tokenizer.decode(eos_token_id)
+            if res.endswith(eos):
+                res = res[: -len(self.tokenizer.eos_token)]
         if not value.save_stop_text and value.stop_regex is not None:
             if isinstance(value.stop_regex, str):
                 stop_regex = [regex.compile(value.stop_regex)]
@@ -195,19 +203,20 @@ class Model(PathFinder):
 
     def _get_find(self, value: Find):
         prompt_render, input_ids = self._format_prompt()
-        model_config = AutoConfig.from_pretrained(
+        generation_config = GenerationConfig.from_pretrained(
             self.model.name_or_path,
             trust_remote_code=self.trust_remote_code,
         )
 
-        pad_token_id = model_config.pad_token_id
-        eos_token_id = model_config.eos_token_id
+        pad_token_id = generation_config.pad_token_id
+        eos_token_id = generation_config.eos_token_id
         if eos_token_id is None:
             eos_token_id = self.tokenizer.eos_token_id
         if pad_token_id is None:
-            pad_token_id = eos_token_id
-
-        generation_config = GenerationConfig(
+            pad_token_id = (
+                eos_token_id[0] if isinstance(eos_token_id, list) else eos_token_id
+            )
+        generation_config.update(
             pad_token_id=pad_token_id,
             eos_token_id=eos_token_id,
             max_new_tokens=value.max_tokens,
@@ -225,7 +234,6 @@ class Model(PathFinder):
                 }
             ),
         )
-
         output = self.model.generate(
             inputs=input_ids,
             generation_config=generation_config,
@@ -247,8 +255,18 @@ class Model(PathFinder):
         res = self.tokenizer.decode(
             output[0][input_ids.shape[1] :], skip_special_tokens=False
         )
-        if res.endswith(self.tokenizer.eos_token):
-            res = res[: -len(self.tokenizer.eos_token)]
+
+        # use generation_config.eos_token_id, can be a list or a single value, detokenize and remove eos token
+        if isinstance(eos_token_id, list):
+            for eos_id in eos_token_id:
+                eos = self.tokenizer.decode(eos_id)
+                if res.endswith(eos):
+                    res = res[: -len(eos)]
+                    break
+        else:
+            eos = self.tokenizer.decode(eos_token_id)
+            if res.endswith(eos):
+                res = res[: -len(self.tokenizer.eos_token)]
         # remove end pattern if it exists and save_stop_text is True
         original_res = res
         self._variables[f"PATHFINDER_ORIGINAL_{value.name}"] = res
@@ -281,7 +299,6 @@ class Model(PathFinder):
             output_scores=True,
             renormalize_logits=True,
         )
-        model_config.update(generation_config.to_dict())
 
         options_text = [
             self.tokenizer.decode(

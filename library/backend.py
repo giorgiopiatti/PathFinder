@@ -20,10 +20,9 @@ class PathFinder:
         self.prefix_text = ""
         self.text_to_consume = ""
 
-
     def _current_prompt(self):
         raise NotImplementedError
-    
+
     def _format_chat_entry_as_html(self, entry):
         # Bold the role tag
         role_tag = f'<strong>{entry["role"].upper()}</strong>'
@@ -53,14 +52,18 @@ class PathFinder:
             new_lm.chat = self.chat
 
         return new_lm
-    
+
     def _consume_assistant_text(self, value):
         pass
 
     def __add__(self, value):
         lm = self.copy()
 
-        if len(lm.chat) == 0 and PathFinder.empty_block and PathFinder.open_block is None:
+        if (
+            len(lm.chat) == 0
+            and PathFinder.empty_block
+            and PathFinder.open_block is None
+        ):
             # We are not in a chat block, so we simply add the string
             lm.chat = ""
         elif PathFinder.open_block is not None and PathFinder.open_block.init_tag:
@@ -79,7 +82,7 @@ class PathFinder:
                 lm.chat[-1]["content"] += value
             else:
                 lm.chat += value
-            
+
             if lm.chat[-1]["role"] == "assistant":
                 lm._consume_assistant_text(value)
         else:
@@ -99,16 +102,14 @@ class PathFinder:
                 original_res = res
             else:
                 raise Exception(f"Unknown type {type(value)}")
-            
+
             if isinstance(lm.chat, list):
                 lm.chat[-1]["content"] += original_res
             else:
                 lm.chat += original_res
-            
             lm._variables[value.name] = res
-        
+
         return lm
-    
 
     def __getitem__(self, key):
         if key in self._variables:
@@ -119,13 +120,11 @@ class PathFinder:
         lm._variables[key] = value
         return lm
 
-    
     def _get_gen(self, value: Gen):
         raise NotImplementedError
-    
+
     def _get_find(self, value: Find):
         raise NotImplementedError
-    
+
     def _get_select(self, value: Select):
         raise NotImplementedError
-    
