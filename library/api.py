@@ -4,23 +4,7 @@ from time import sleep
 from typing import Any
 
 import backoff
-import numpy as np
-import openai
-import pygtrie
 import regex
-import torch
-from transformers import (
-    AutoConfig,
-    GenerationConfig,
-    LogitsProcessor,
-    LogitsProcessorList,
-    MaxLengthCriteria,
-    PreTrainedModel,
-    PreTrainedTokenizer,
-    StoppingCriteria,
-    StoppingCriteriaList,
-    pipeline,
-)
 
 from ._find import Find
 from ._gen import Gen
@@ -188,10 +172,11 @@ class ModelAPI(PathFinder):
         elif is_gen:
             # not stop token
             res = lm.text_to_consume
-            lm.text_to_consume = ""   
+            lm.text_to_consume = ""
         else:
             raise Exception(f"Cant find {r} in {lm.text_to_consume}")
         return res
+
 
 class OpenAIAPI(ModelAPI):
     def __init__(self, model_name, seed):
