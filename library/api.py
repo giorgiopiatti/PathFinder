@@ -204,6 +204,88 @@ class OpenAIAPI(ModelAPI):
         return out.choices[0].message.content
 
 
+import json
+import os
+
+
+def append_token_usage(token_in, token_out, model, file_name):
+
+    # Create a dictionary to append
+    file_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "..", "api_usage"
+    )
+    os.makedirs(file_path, exist_ok=True)
+    file_path = os.path.join(file_path, f"{file_name}.json")
+
+    if "gpt-4-turbo-2024-04-09" in model:
+        cost_in = token_in * 10 / 1e6
+        cost_out = token_out * 30 / 1e6
+    else:
+        raise ValueError(f"Model {model} not supported")
+
+    new_entry = {
+        "token_in": token_in,
+        "token_out": token_out,
+        "cost_in": cost_in,
+        "cost_out": cost_out,
+        "total_cost": cost_in + cost_out,
+    }
+
+    # Check if file exists and is not empty
+    if os.path.isfile(file_path) and os.path.getsize(file_path) > 0:
+        # Open the file in read/write mode
+        with open(file_path, "r+") as file:
+            file.seek(0, os.SEEK_END)  # Move the cursor to the end of file
+            file.seek(
+                file.tell() - 1, os.SEEK_SET
+            )  # Move the cursor back by one character from the end
+            file.write(
+                ",\n" + json.dumps(new_entry) + "\n]"
+            )  # Convert dict to JSON string and append
+    else:
+        # If the file does not exist or is empty, write a new list with one element
+        with open(file_path, "w") as file:
+            json.dump([new_entry], file, indent=4)
+
+
+import uuid
+
+
+class AzureOpenAIAPI(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        from openai import AzureOpenAI
+
+        self.client = AzureOpenAI()
+        self.random_name = str(uuid.uuid4())
+
+    def request_api(self, chat, tmeperature, top_p, max_tokens):
+        import openai
+
+        @backoff.on_exception(backoff.expo, openai.RateLimitError)
+        def completions_with_backoff(**kwargs):
+            return self.client.chat.completions.create(**kwargs)
+
+        out = completions_with_backoff(
+            model=self.model_name,
+            messages=chat,
+            temperature=tmeperature,
+            top_p=top_p,
+            seed=self.seed,
+            max_tokens=max_tokens,
+        )
+        logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
+
+        self.token_in = out.usage.prompt_tokens
+        self.token_out = out.usage.completion_tokens
+
+        append_token_usage(
+            self.token_in, self.token_out, self.model_name, self.random_name
+        )
+
+        return out.choices[0].message.content
+
+
 import os
 
 

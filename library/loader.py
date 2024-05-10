@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-from .api import AnthropicAPI, MistralAPI, OpenAIAPI
+from .api import AnthropicAPI, AzureOpenAIAPI, MistralAPI, OpenAIAPI
 from .chat import (
     ChatML,
     Cohere,
@@ -19,6 +19,8 @@ from .model import Model
 
 
 def get_api_model(name, seed):
+    if "z-gpt" in name.lower():
+        return AzureOpenAIAPI(name, seed)
     if "gpt" in name.lower():
         return OpenAIAPI(name, seed)
     elif "mistral" in name.lower():
