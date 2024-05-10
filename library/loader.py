@@ -95,7 +95,7 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
 
         model = AutoModelForCausalLM.from_pretrained(
             name,
-            device_map="auto",
+            device_map="balanced",
             trust_remote_code=trust_remote_code,
             revision=branch,
             # attn_implementation=(
