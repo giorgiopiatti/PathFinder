@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-from .api import AnthropicAPI, AzureOpenAIAPI, MistralAPI, OpenAIAPI
+from .api import AnthropicAPI, AzureOpenAIAPI, MistralAPI, OpenAIAPI, OpenRouter
 from .chat import (
     ChatML,
     Cohere,
@@ -27,6 +27,9 @@ def get_api_model(name, seed):
         return MistralAPI(name, seed)
     elif "claude" in name.lower():
         return AnthropicAPI(name, seed)
+    elif "openrouter" in name.lower():
+        name = name.replace("openrouter-", "")
+        return OpenRouter(name, seed)
     else:
         raise ValueError(f"Unknown model name {name}")
 

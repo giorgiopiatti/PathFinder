@@ -204,6 +204,37 @@ class OpenAIAPI(ModelAPI):
         return out.choices[0].message.content
 
 
+class OpenRouter(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        from os import getenv
+
+        from openai import OpenAI
+
+        self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=getenv("OPENROUTER_API_KEY"),
+        )
+
+    def request_api(self, chat, tmeperature, top_p, max_tokens):
+        import openai
+
+        @backoff.on_exception(backoff.expo, openai.RateLimitError)
+        def completions_with_backoff(**kwargs):
+            return self.client.chat.completions.create(**kwargs)
+
+        out = completions_with_backoff(
+            model=self.model_name,
+            messages=chat,
+            temperature=tmeperature,
+            top_p=top_p,
+            seed=self.seed,
+            max_tokens=max_tokens,
+        )
+        logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
+        return out.choices[0].message.content
+
+
 import json
 import os
 
