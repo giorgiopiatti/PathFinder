@@ -3,7 +3,6 @@ import os
 from transformers import PreTrainedModel, PreTrainedTokenizer
 
 from .model import Model
-from .templates import LLAMA_CHAT_TEMPLATE, MIXTRAL_INSTRUCT_TEMPLATE
 
 
 class LlamaChat:
