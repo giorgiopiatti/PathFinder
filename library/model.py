@@ -21,7 +21,6 @@ from transformers import (
 from ._find import Find
 from ._gen import Gen
 from ._select import Select
-from .templates import LLAMA_CHAT_TEMPLATE
 from .trie import MarisaTrie, Trie
 
 
