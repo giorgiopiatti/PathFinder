@@ -11,7 +11,6 @@ from ._gen import Gen
 from ._select import Select
 from .backend import PathFinder
 from .model import Model
-from .templates import LLAMA_CHAT_TEMPLATE
 from .trie import MarisaTrie, Trie
 
 
