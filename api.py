@@ -1,6 +1,5 @@
 import pytest
-
-from library import LlamaChat, ModelAPI, assistant, gen, select, user
+from pathfinder import LlamaChat, ModelAPI, assistant, gen, select, user
 
 base = ModelAPI("gpt-3.5-turbo")
 
