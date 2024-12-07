@@ -70,6 +70,7 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
         cls = ChatML
     elif "deepseek" in name.lower():
         cls = DeepSeek
+        trust_remote_code = True
     elif "command" in name.lower():
         cls = Cohere
     else:
@@ -125,6 +126,9 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
             trust_remote_code=trust_remote_code,
             template=cls().template,
         )
+        print("Model device")
+        print(model.device)
+
     elif backend_name == "vllm":
         from .vllm import ModelVLLMBackend
 
