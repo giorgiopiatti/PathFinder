@@ -157,6 +157,7 @@ def get_model(
             trust_remote_code=trust_remote_code,
             template=cls().template,
         )
+        model.name_or_path = name
         print("Model device")
         print(model.device)
 
