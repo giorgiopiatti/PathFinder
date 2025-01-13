@@ -5,6 +5,7 @@ from typing import Any
 
 import backoff
 import regex
+from dotenv import load_dotenv
 
 from ._find import Find
 from ._gen import Gen
@@ -176,13 +177,48 @@ class ModelAPI(PathFinder):
             raise Exception(f"Cant find {r} in {lm.text_to_consume}")
         return res
 
+class DeepSeekAPI(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        from openai import OpenAI
+        from dotenv import load_dotenv
+        import os
+
+        load_dotenv()  # Load the .env file
+        api_key = os.getenv("DEEPSEEK_API_KEY")  # Get the OpenAI API key
+
+        self.client = OpenAI(api_key=api_key,
+                             base_url="https://api.deepseek.com")
+
+    def request_api(self, chat, tmeperature, top_p, max_tokens):
+        import openai
+
+        @backoff.on_exception(backoff.expo, openai.RateLimitError)
+        def completions_with_backoff(**kwargs):
+            return self.client.chat.completions.create(**kwargs)
+
+        out = completions_with_backoff(
+            model=self.model_name,
+            messages=chat,
+            temperature=tmeperature,
+            top_p=top_p,
+            seed=self.seed,
+            max_tokens=max_tokens,
+        )
+        logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
+        return out.choices[0].message.content
 
 class OpenAIAPI(ModelAPI):
     def __init__(self, model_name, seed):
         super().__init__(model_name, seed)
         from openai import OpenAI
+        from dotenv import load_dotenv
+        import os
 
-        self.client = OpenAI()
+        load_dotenv()  # Load the .env file
+        api_key = os.getenv("OPENAI_API_KEY")  # Get the OpenAI API key
+
+        self.client = OpenAI(api_key=api_key)
 
     def request_api(self, chat, tmeperature, top_p, max_tokens):
         import openai
