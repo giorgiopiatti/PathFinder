@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-from .api import AnthropicAPI, AzureOpenAIAPI, MistralAPI, OpenAIAPI, OpenRouter, DeepSeekAPI
+from .api import AnthropicAPI, AzureOpenAIAPI, MistralAPI, OpenAIAPI, OpenRouter, DeepSeekAPI, HumanAPI
 from .chat import (
     ChatML,
     Cohere,
@@ -32,6 +32,8 @@ def get_api_model(name, seed):
         return OpenRouter(name, seed)
     elif "deepseek" in name.lower():
         return DeepSeekAPI(name, seed)
+    elif "human" in name.lower():
+        return HumanAPI(name, seed)
     else:
         raise ValueError(f"Unknown model name {name}")
 

@@ -13,6 +13,7 @@ from ._select import Select
 from .backend import PathFinder
 from .model import Model
 from .trie import MarisaTrie, Trie
+from typing import List, Dict, Any
 
 
 def can_be_int(s):
@@ -207,6 +208,63 @@ class DeepSeekAPI(ModelAPI):
         )
         logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
         return out.choices[0].message.content
+    
+class HumanAPI(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        self.conversation_history = []
+        logging.info(f"Initialized Human-in-loop API with model_name: {model_name}, seed: {seed}")
+
+    def request_api(self, chat: List[Dict[str, str]], temperature: float, top_p: float, max_tokens: int) -> str:
+        """
+        Simulates an API request by getting input from a human operator.
+        Maintains similar interface to DeepSeekAPI.
+        """
+        # Format the conversation history for human review
+        print("\n" + "="*50)
+        print(f"Model: {self.model_name}")
+        print(f"Parameters: temperature={temperature}, top_p={top_p}, max_tokens={max_tokens}")
+        print("="*50 + "\n")
+
+        # Display the conversation history
+        for message in chat:
+            role = message["role"].upper()
+            content = message["content"]
+            print(f"{role}: {content}\n")
+
+        # Get human input with backoff-like behavior for consistency
+        @backoff.on_exception(backoff.expo, (KeyboardInterrupt, EOFError))
+        def get_human_input_with_backoff():
+            print("\nEnter your response (press Enter twice to finish):")
+            lines = []
+            while True:
+                try:
+                    line = input()
+                    if line == "":
+                        break
+                    lines.append(line)
+                except (KeyboardInterrupt, EOFError) as e:
+                    print("\nInput interrupted. Press Ctrl+C again to exit or continue typing.")
+                    raise e
+            return "\n".join(lines)
+
+        response = get_human_input_with_backoff()
+        
+        # Log the interaction similar to DeepSeekAPI
+        logging.info(f"Human-in-loop response received. Length: {len(response)} chars")
+        
+        # Store in conversation history
+        self.conversation_history.append({
+            "role": "human-operator",
+            "content": response,
+            "parameters": {
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_tokens": max_tokens
+            }
+        })
+        
+        return response
 
 class OpenAIAPI(ModelAPI):
     def __init__(self, model_name, seed):
