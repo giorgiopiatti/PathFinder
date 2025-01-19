@@ -1,7 +1,6 @@
 import pytest
+from pathfinder.pathfinder import LlamaChat, PathFinderModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-from pathfinder.library import LlamaChat, PathFinderModel
 
 
 def pytest_addoption(parser):
