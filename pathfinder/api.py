@@ -250,7 +250,7 @@ class HumanAPI(ModelAPI):
 
         response = get_human_input_with_backoff()
         
-        # Log the interaction similar to DeepSeekAPI
+        # Log the interaction similar to any OpenAI API
         logging.info(f"Human-in-loop response received. Length: {len(response)} chars")
         
         # Store in conversation history
