@@ -344,6 +344,9 @@ def append_token_usage(token_in, token_out, model, file_name):
     if "gpt-4-turbo-2024-04-09" in model:
         cost_in = token_in * 10 / 1e6
         cost_out = token_out * 30 / 1e6
+    elif "gpt-4-0613" in model:
+        cost_in = token_in * 30 / 1e6
+        cost_out = token_out * 60 / 1e6
     else:
         raise ValueError(f"Model {model} not supported")
 
@@ -353,6 +356,7 @@ def append_token_usage(token_in, token_out, model, file_name):
         "cost_in": cost_in,
         "cost_out": cost_out,
         "total_cost": cost_in + cost_out,
+        "model": model,
     }
 
     # Check if file exists and is not empty

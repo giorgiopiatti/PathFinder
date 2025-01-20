@@ -1,4 +1,5 @@
 import torch
+from accelerate import infer_auto_device_map
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .api import AnthropicAPI, AzureOpenAIAPI, MistralAPI, OpenAIAPI, OpenRouter, DeepSeekAPI, HumanAPI
@@ -38,7 +39,36 @@ def get_api_model(name, seed):
         raise ValueError(f"Unknown model name {name}")
 
 
-def get_model(name, is_api=False, seed=42, backend_name="transformers"):
+def get_gpu_memory_no_reserve(gpu_list):
+    """
+    Detect the total memory on each GPU in the list without reserving extra overhead.
+    Returns a dictionary mapping each GPU to its total memory.
+    """
+    max_memory = {}
+    for gpu in gpu_list:
+        total_memory = torch.cuda.get_device_properties(gpu).total_memory
+        max_memory[gpu] = f"{int(total_memory // (1024 ** 3))}GiB"  # Use full memory
+    return max_memory
+
+
+def get_available_gpus():
+    """
+    Returns a list of all available GPUs in the format [0, 1, ...].
+    """
+    if not torch.cuda.is_available():
+        return []  # No GPUs available
+    return [i for i in range(torch.cuda.device_count())]
+
+
+def get_model(
+    name,
+    is_api=False,
+    seed=42,
+    backend_name="transformers",
+    gpu_list=None,
+):
+    if gpu_list is None:
+        gpu_list = get_available_gpus()
     if is_api:
         return get_api_model(name, seed)
     trust_remote_code = False
@@ -74,6 +104,7 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
         cls = ChatML
     elif "deepseek" in name.lower():
         cls = DeepSeek
+        trust_remote_code = True
     elif "command" in name.lower():
         cls = Cohere
     else:
@@ -111,6 +142,7 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
         model = AutoModelForCausalLM.from_pretrained(
             name,
             device_map="balanced",
+            max_memory=get_gpu_memory_no_reserve(gpu_list),
             trust_remote_code=trust_remote_code,
             revision=branch,
             # attn_implementation=(
@@ -133,6 +165,10 @@ def get_model(name, is_api=False, seed=42, backend_name="transformers"):
             trust_remote_code=trust_remote_code,
             template=cls().template,
         )
+        model.name_or_path = name
+        print("Model device")
+        print(model.device)
+
     elif backend_name == "vllm":
         from .vllm import ModelVLLMBackend
 

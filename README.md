@@ -30,3 +30,7 @@ In principle, any LLM model can be used. We support the following families of mo
 
 ## Documentation
 More documentation & examples coming soon.
+
+
+## Development Notes
+The templates are based on https://github.com/chujiezheng/chat_templates 
