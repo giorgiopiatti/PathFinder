@@ -2,7 +2,7 @@ import torch
 from accelerate import infer_auto_device_map
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-from .api import AnthropicAPI, AzureOpenAIAPI, MistralAPI, OpenAIAPI, OpenRouter
+from .api import AnthropicAPI, AzureOpenAIAPI, MistralAPI, OpenAIAPI, OpenRouter, DeepSeekAPI, HumanAPI
 from .chat import (
     ChatML,
     Cohere,
@@ -31,6 +31,10 @@ def get_api_model(name, seed):
     elif "openrouter" in name.lower():
         name = name.replace("openrouter-", "")
         return OpenRouter(name, seed)
+    elif "deepseek" in name.lower():
+        return DeepSeekAPI(name, seed)
+    elif "human" in name.lower():
+        return HumanAPI(name, seed)
     else:
         raise ValueError(f"Unknown model name {name}")
 
@@ -127,8 +131,12 @@ def get_model(
     )
 
     if backend_name == "transformers":
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        access_token = os.getenv("HUGGINGFACE_HUB_TOKEN")
         model_config = AutoConfig.from_pretrained(
-            name, trust_remote_code=trust_remote_code
+            name, trust_remote_code=trust_remote_code, use_auth_token=access_token,
         )
 
         model = AutoModelForCausalLM.from_pretrained(

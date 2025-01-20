@@ -5,6 +5,7 @@ from typing import Any
 
 import backoff
 import regex
+from dotenv import load_dotenv
 
 from ._find import Find
 from ._gen import Gen
@@ -12,6 +13,7 @@ from ._select import Select
 from .backend import PathFinder
 from .model import Model
 from .trie import MarisaTrie, Trie
+from typing import List, Dict, Any
 
 
 def can_be_int(s):
@@ -176,13 +178,105 @@ class ModelAPI(PathFinder):
             raise Exception(f"Cant find {r} in {lm.text_to_consume}")
         return res
 
+class DeepSeekAPI(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        from openai import OpenAI
+        from dotenv import load_dotenv
+        import os
+
+        load_dotenv()  # Load the .env file
+        api_key = os.getenv("DEEPSEEK_API_KEY")  # Get the OpenAI API key
+
+        self.client = OpenAI(api_key=api_key,
+                             base_url="https://api.deepseek.com")
+
+    def request_api(self, chat, tmeperature, top_p, max_tokens):
+        import openai
+
+        @backoff.on_exception(backoff.expo, openai.RateLimitError)
+        def completions_with_backoff(**kwargs):
+            return self.client.chat.completions.create(**kwargs)
+
+        out = completions_with_backoff(
+            model=self.model_name,
+            messages=chat,
+            temperature=tmeperature,
+            top_p=top_p,
+            seed=self.seed,
+            max_tokens=max_tokens,
+        )
+        logging.info(f"OpenAI system_fingerprint: {out.system_fingerprint}")
+        return out.choices[0].message.content
+    
+class HumanAPI(ModelAPI):
+    def __init__(self, model_name, seed):
+        super().__init__(model_name, seed)
+        self.conversation_history = []
+        logging.info(f"Initialized Human-in-loop API with model_name: {model_name}, seed: {seed}")
+
+    def request_api(self, chat: List[Dict[str, str]], temperature: float, top_p: float, max_tokens: int) -> str:
+        """
+        Simulates an API request by getting input from a human operator.
+        Maintains similar interface to DeepSeekAPI.
+        """
+        # Format the conversation history for human review
+        print("\n" + "="*50)
+        print(f"Model: {self.model_name}")
+        print(f"Parameters: temperature={temperature}, top_p={top_p}, max_tokens={max_tokens}")
+        print("="*50 + "\n")
+
+        # Display the conversation history
+        for message in chat:
+            role = message["role"].upper()
+            content = message["content"]
+            print(f"{role}: {content}\n")
+
+        # Get human input with backoff-like behavior for consistency
+        @backoff.on_exception(backoff.expo, (KeyboardInterrupt, EOFError))
+        def get_human_input_with_backoff():
+            print("\nEnter your response (press Enter twice to finish):")
+            lines = []
+            while True:
+                try:
+                    line = input()
+                    if line == "":
+                        break
+                    lines.append(line)
+                except (KeyboardInterrupt, EOFError) as e:
+                    print("\nInput interrupted. Press Ctrl+C again to exit or continue typing.")
+                    raise e
+            return "\n".join(lines)
+
+        response = get_human_input_with_backoff()
+        
+        # Log the interaction similar to any OpenAI API
+        logging.info(f"Human-in-loop response received. Length: {len(response)} chars")
+        
+        # Store in conversation history
+        self.conversation_history.append({
+            "role": "human-operator",
+            "content": response,
+            "parameters": {
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_tokens": max_tokens
+            }
+        })
+        
+        return response
 
 class OpenAIAPI(ModelAPI):
     def __init__(self, model_name, seed):
         super().__init__(model_name, seed)
         from openai import OpenAI
+        from dotenv import load_dotenv
+        import os
 
-        self.client = OpenAI()
+        load_dotenv()  # Load the .env file
+        api_key = os.getenv("OPENAI_API_KEY")  # Get the OpenAI API key
+
+        self.client = OpenAI(api_key=api_key)
 
     def request_api(self, chat, tmeperature, top_p, max_tokens):
         import openai
